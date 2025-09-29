@@ -1,0 +1,5 @@
+key	text	tooltip
+#Loc;1;text/db/tcs_effects__.loc		
+effects_description_wh2_main_effect_ability_enable_regeneration	Passive ability: "Regeneration"	false
+tcs_main_effect_ability_inactive	Passive ability: "Inactive"	false
+tcs_main_effect_ability_stationary	Passive ability: "Stationary"	false

@@ -1,0 +1,22 @@
+key	text	tooltip
+#Loc;1;text/db/tcs_unit_abilities__.loc		
+unit_abilities_onscreen_name_tcs_main_unit_passive_inactive_fighting	Inactive (melee)	false
+unit_abilities_tooltip_text_tcs_main_unit_passive_inactive_fighting	This unit is not currently activated to to fight and deals no damage in melee combat.	false
+unit_abilities_onscreen_name_tcs_main_unit_passive_stationary	Stationary	false
+unit_abilities_tooltip_text_tcs_main_unit_passive_stationary	This unit is not currently activated to move on the battlefield.	false
+unit_abilities_onscreen_name_tcs_main_unit_passive_inactive_shooting	Inactive (ranged)	false
+unit_abilities_tooltip_text_tcs_main_unit_passive_inactive_shooting	This unit is not currently activated to to shoot its missile weapon and deals no damage in ranged combat.	false
+unit_abilities_onscreen_name_tcs_main_unit_active_move	Activate (move)	false
+unit_abilities_tooltip_text_tcs_main_unit_active_move	Activates this unit to move on the battlefield.	false
+unit_abilities_onscreen_name_tcs_main_unit_active_fight	Activate (fight)	false
+unit_abilities_tooltip_text_tcs_main_unit_active_fight	Activates this unit to fight!	false
+unit_abilities_onscreen_name_tcs_main_unit_active_shoot	Activate (shoot)	false
+unit_abilities_tooltip_text_tcs_main_unit_active_shoot	Activates this unit to shoot!	false
+unit_abilities_onscreen_name_tcs_army_ai_move	AI Movement phase	false
+unit_abilities_tooltip_text_tcs_army_ai_move	Allows all AI units to Activate (Move)	false
+unit_abilities_onscreen_name_tcs_army_ai_fight	AI Fighting phse	false
+unit_abilities_tooltip_text_tcs_army_ai_fight	Allows all AI units to Activate (Fight)	false
+unit_abilities_onscreen_name_tcs_army_ai_shoot	AI Shooting phase	false
+unit_abilities_tooltip_text_tcs_army_ai_shoot	Allows all AI units to Activate (Shoot)	false
+unit_abilities_onscreen_name_tcs_main_unit_passive_invulnerable	Inactive (Invulnerable)	false
+unit_abilities_tooltip_text_tcs_main_unit_passive_invulnerable	This unit cannot take damage until it should.	false

@@ -1,0 +1,10 @@
+effect	icon	priority	icon_negative	category	is_positive_value_good
+#effects_tables;0;db/effects_tables/tcs_					
+tcs_main_effect_ability_inactive_fighting	general_ability.png	310	general_ability.png	battle	true
+tcs_main_effect_ability_inactive_shooting	general_ability.png	310	general_ability.png	battle	true
+tcs_main_effect_ability_stationary	general_ability.png	310	general_ability.png	battle	true
+tcs_main_effect_ability_disable_stationary	general_ability.png	310	general_ability.png	battle	true
+tcs_main_effect_ability_disable_inactive_fighting	general_ability.png	310	general_ability.png	battle	true
+tcs_main_effect_ability_disable_inactive_shooting	general_ability.png	310	general_ability.png	battle	true
+tcs_army_enable_ai_controls	general_ability.png	310	general_ability.png	battle	true
+tcs_ai_unit_passive_ranged_fix	general_ability.png	310	general_ability.png	battle	true

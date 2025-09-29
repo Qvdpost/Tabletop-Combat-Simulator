@@ -1,0 +1,6 @@
+army_special_ability	unit_special_ability	unique_id	enables_siege_assault
+#army_special_abilities_tables;2;db/army_special_abilities_tables/tcs_			
+tcs_army_ai_move	tcs_army_ai_move	34006	false
+tcs_army_ai_fight	tcs_army_ai_fight	34007	false
+tcs_army_ai_shoot	tcs_army_ai_shoot	34008	false
+tcs_army_ai_hero	tcs_army_ai_hero	34010	false
