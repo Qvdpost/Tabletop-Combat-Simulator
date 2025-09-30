@@ -11,6 +11,7 @@ end;
 
 function unit_move(unit, time)
     local callback_name = "freeze_unit_"..unit:unique_ui_id();
+    
     bm:remove_callback(callback_name);
     
     unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
@@ -34,6 +35,8 @@ end;
 
 function unit_fight(unit, time)
     unit:set_stat_attribute("melee_disabled", false)
+    local scrunit = bm:get_scriptunit_for_unit(unit);
+    scrunit:set_melee_mode(true, true)
     
     local callback_name = "stopfight_"..unit:unique_ui_id();
     
@@ -85,22 +88,29 @@ end
 
 function unit_end_charge(unit)
     tcs:log("Unit("..unit:unique_ui_id()..") stopped charging.");
+    local scrunit = bm:get_scriptunit_for_unit(unit);
     unit:set_stat_attribute("melee_disabled", true)
+    scrunit:halt();
 end
 
-function stopcharge_unit(unit, callback_name)
-    if not unit:is_in_melee() then
-        tcs:log("Unit ("..unit:unique_ui_id()..") not yet in melee.")
-        unit_move(unit, 5000);
-    elseif unit:is_in_melee() then
+function stopcharge_unit(unit, charge_unit, charge_target, callback_name)
+    if unit:is_in_melee() then
         tcs:log("Unit ("..unit:unique_ui_id()..") in melee.")
         bm:remove_callback(callback_name)
+        charge_unit:stop_attack_enemy_scriptunits()
         unit_end_charge(unit)
+        return
     elseif not unit:is_moving() then
         tcs:log("Unit ("..unit:unique_ui_id()..") in not moving. Aborting charge.")
         bm:remove_callback(callback_name)
+        charge_unit:stop_attack_enemy_scriptunits()
         unit_end_charge(unit)
+        return
     end
+    
+    tcs:log("Unit ("..unit:unique_ui_id()..") not yet in melee.")
+    ai_unit_move(unit, 5000);
+    charge_unit:attack_enemy_scriptunits(charge_target, true)
 end
 
 function unit_charge(unit)
@@ -149,7 +159,7 @@ function unit_charge(unit)
     
     unit_move(unit, 5000)
     
-    bm:repeat_callback(function() stopcharge_unit(unit, callback_name) end, 2000, callback_name)
+    bm:repeat_callback(function() stopcharge_unit(unit, charge_unit, charge_target, callback_name) end, 2000, callback_name)
     
     bm:callback(
         function() 

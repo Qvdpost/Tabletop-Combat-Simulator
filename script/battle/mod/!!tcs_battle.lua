@@ -8,6 +8,17 @@ local tcs_battle = {
     ai_actively_shooting = 0,
     ai_actively_moving = 0,
     ai_actively_charging = 0,
+    ai_army_alliance = {},
+    
+    active_augments = {
+        {},
+        {}
+    },
+    
+    active_curses = {
+        {},
+        {}
+    },
 
     phase_buttons = {
         "button_hero_phase",
@@ -16,6 +27,7 @@ local tcs_battle = {
         "button_charge_phase",
         "button_fight_phase"
     },
+    
     phase_button_to_key = {
         button_hero_phase = 1,
         button_move_phase = 2,

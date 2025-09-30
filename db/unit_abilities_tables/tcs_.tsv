@@ -11,4 +11,5 @@ tcs_army_ai_fight	false	wh_magic_item_passive_weapon		wh_type_chain_augment		wh_
 tcs_army_ai_shoot	false	fire_at_will		wh_type_chain_augment		wh_main_anc_group_common	false	false	army		false
 tcs_army_ai_hero	false	immune_to_psychology		wh_type_chain_augment		wh_main_anc_group_common	false	false	army		false
 tcs_ai_unit_passive_ranged_fix	false	upgrade_missile_bronze		wh_type_augment		wh_main_anc_group_common	false	true	passive		false
-tcs_main_unit_active_charge	false	fatigue_immune		wh_type_augment		wh_main_anc_group_common	false	false	active		false
+tcs_main_unit_active_charge	false	wh3_main_character_abilities_locus_of_fury		wh_type_augment		wh_main_anc_group_common	false	false	active		false
+tcs_army_ai_charge	false	wh3_main_character_abilities_locus_of_fury		wh_type_chain_augment		wh_main_anc_group_common	false	false	army		false

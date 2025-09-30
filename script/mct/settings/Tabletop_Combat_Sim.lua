@@ -46,6 +46,11 @@ mct_option:slider_set_min_max(60, 360)
 mct_option:slider_set_step_size(10)
 mct_option:set_default_value(120)
 
+local option_tcs_formed_attack_enabled = mct_mod:add_new_option("force_formed_attack", "checkbox");
+option_tcs_formed_attack_enabled:set_text("Force Formed Attack")
+option_tcs_formed_attack_enabled:set_tooltip_text("If enabled, AI units will be put in Formed Attack to maintain formation.");
+option_tcs_formed_attack_enabled:set_default_value(false);
+
 local option_pttg_logging_enabled = mct_mod:add_new_option("logging_enabled", "checkbox");
 option_pttg_logging_enabled:set_text("Enable logging");
 option_pttg_logging_enabled:set_tooltip_text("If enabled, a log will be populated as you play. Use it to report bugs!");

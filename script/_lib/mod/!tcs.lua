@@ -7,7 +7,8 @@ local tcs = {
         ai_move_time = 30,
         ai_fight_time = 20,
         ai_shoot_time = 10,
-        ai_hero_time = 5
+        ai_hero_time = 5,
+        force_formed_attack = false
     }
 };
 
@@ -15,7 +16,7 @@ local tcs = {
 function tcs:log(text)
     if tcs:get_config("logging_enabled") then
         -- Code taken from Mixu's Mixer Mod
-        ftext = "[Quinner][tcs]:";
+        ftext = "[Quinner|TCS]";
             
         if enable_logging == false then
             return
@@ -27,9 +28,34 @@ function tcs:log(text)
 
         local logText = tostring(text)
         local logContext = tostring(ftext)
-        local logTimeStamp = os.date("%d, %m %Y %X")
+        local logTimeStamp = os.date("%d-%m-%Y %X")
         local popLog = io.open("mod_logs/tcs.log","a")
 
+        popLog :write(logContext .. ":  "..logText .. "    : [".. logTimeStamp .. "]\n")
+        popLog :flush()
+        popLog :close()
+
+    end
+end
+
+function tcs:clear_log()
+    if tcs:get_config("logging_enabled") then
+        -- Code taken from Mixu's Mixer Mod
+        ftext = "[Quinner|TCS]";
+            
+        if enable_logging == false then
+            return
+        end
+            
+        if not __write_output_to_logfile then
+            return;
+        end
+
+        local logText = tostring(text)
+        local logContext = tostring(ftext)
+        local logTimeStamp = os.date("%d-%m-%Y %X")
+        local popLog = io.open("mod_logs/tcs.log","w")
+        local logText = "Tabletop Combat Simulator initialized."
         popLog :write(logContext .. ":  "..logText .. "    : [".. logTimeStamp .. "]\n")
         popLog :flush()
         popLog :close()

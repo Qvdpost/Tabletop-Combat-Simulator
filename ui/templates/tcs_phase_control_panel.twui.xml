@@ -171,7 +171,7 @@
 				<component_image
 					this="894E32D1-D96C-0809-C3446608EC47695B"
 					uniqueguid="894E32D1-D96C-0809-C3446608EC47695B"
-					imagepath="ui/flags/wh3_main_cth_the_northern_provinces/mon_rotated.png"/>
+					imagepath="ui/skins/default/mon_64.png"/>
 			</componentimages>
 			<states>
 				<newstate

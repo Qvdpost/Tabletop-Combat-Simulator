@@ -95,6 +95,7 @@ core:add_listener(
         
         reset_phases()
         set_active_phase("button_hero_phase")
+        set_active_crest()
         mapf_to_all_units(disable_unit_activations)
         reselect_units()
         
@@ -123,6 +124,8 @@ core:add_listener(
 
         
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
+            tcs_battle.ai_actively_moving = 0
+
             mapf_to_ai_units(ai_unit_move, tcs:get_config("ai_move_time")*1000);
             
             local scrunits = bm:get_scriptunits_for_main_enemy_army_to_local_player()            
@@ -130,6 +133,7 @@ core:add_listener(
             local callback_name = "stopmove_phase_ai";
     
             bm:remove_callback(callback_name);
+            
             
             function stopmove_phase()
                 if tcs_battle.ai_actively_moving == 0 then
@@ -250,6 +254,7 @@ core:add_listener(
         else
             mapf_to_all_units(disable_unit_activations)
             mapf_to_all_units(enable_unit_fight)
+            mapf_to_ai_units(ai_unit_fight, tcs:get_config("ai_fight_time")*1000)
             reselect_units()
         end
     end,

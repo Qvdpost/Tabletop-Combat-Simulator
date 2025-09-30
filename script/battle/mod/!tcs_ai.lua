@@ -24,6 +24,9 @@ function ai_unit_move(unit, time)
     local callback_name = "freeze_unit_"..unit:unique_ui_id();
     bm:remove_callback(callback_name);
     
+    tcs:log("AI Unit("..unit:unique_ui_id()..") can move.");
+    tcs_battle.ai_actively_moving = tcs_battle.ai_actively_moving + 1
+    
     if not unit:is_in_melee() then
         unit:set_stat_attribute("melee_disabled", false)
     else
@@ -37,8 +40,7 @@ function ai_unit_move(unit, time)
     scrunit:take_control()
     scrunit:release_control()
     
-    tcs:log("AI Unit("..unit:unique_ui_id()..") can move.");
-    tcs_battle.ai_actively_moving = tcs_battle.ai_actively_moving + 1
+    
     
     bm:callback(
         function()
@@ -200,9 +202,11 @@ end
 
 function ai_unit_end_charge(unit)
     unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
+    unit:set_stat_attribute("melee_disabled", true)
+
     local scrunit = bm:get_scriptunit_for_unit(unit);  
     scrunit:grant_infinite_ammo();
-    unit:set_stat_attribute("melee_disabled", true)
+    scrunit:halt()
 
     bm:callback(
         function()
@@ -214,21 +218,32 @@ function ai_unit_end_charge(unit)
     )
 end
 
-function ai_stopcharge_unit(unit, callback_name)
+function ai_stopcharge_unit(unit, charge_unit, charge_target, callback_name)
     if unit:is_in_melee() then
         tcs:log("AI Unit ("..unit:unique_ui_id()..") in melee.")
         bm:remove_callback(callback_name)
+        charge_unit:stop_attack_enemy_scriptunits()
         ai_unit_end_charge(unit)
         return
     elseif not unit:is_moving() then
         tcs:log("AI Unit ("..unit:unique_ui_id()..") in not moving. Aborting charge.")
         bm:remove_callback(callback_name)
+        charge_unit:stop_attack_enemy_scriptunits()
         ai_unit_end_charge(unit)
         return
     end
     
     tcs:log("AI Unit ("..unit:unique_ui_id()..") not yet in melee.")
     ai_unit_move(unit, 5000);
+    charge_unit:attack_enemy_scriptunits(charge_target, true)
+end
+
+function scrunit_is_currently_flying(scrunit)
+    return scrunit.unit:is_currently_flying()
+end
+
+function scrunit_is_currently_grounded(scrunit)
+    return not scrunit_is_currently_flying(scrunit)
 end
 
 function ai_unit_charge(unit)
@@ -254,7 +269,13 @@ function ai_unit_charge(unit)
     
     unit:set_stat_attribute("melee_disabled", false)
     
-    local nearest_target_sunit_index = get_nearest(scrunit.unit:position(), bm:get_scriptunits_for_local_players_army())
+    local player_scrunits = bm:get_scriptunits_for_local_players_army()
+    
+    if not unit:is_currently_flying() then
+        player_scrunits = player_scrunits:filter("charge_targets", scrunit_is_currently_grounded)
+    end
+    
+    local nearest_target_sunit_index = get_nearest(scrunit.unit:position(), player_scrunits)
     local nearest_target_sunit = bm:get_scriptunits_for_local_players_army():item(nearest_target_sunit_index)
     
     local charge_distance = scrunit.unit:position():distance_xz(nearest_target_sunit.unit:position());
@@ -284,8 +305,6 @@ function ai_unit_charge(unit)
     local charge_target = script_units:new("tcs_charge_target", nearest_target_sunit)
     
     unit_move(unit, 5000)
-
-    bm:repeat_callback(function() ai_stopcharge_unit(unit, callback_name) end, 2000, callback_name)
     
     bm:callback(
         function() 
@@ -294,4 +313,6 @@ function ai_unit_charge(unit)
         end, 
         500
     )
+
+    bm:repeat_callback(function() ai_stopcharge_unit(unit, charge_unit, charge_target, callback_name) end, 2000, callback_name)
 end
