@@ -14,7 +14,7 @@ function reselect_units()
 end
 
 function get_next_alliance_index()
-    local next_index = math.fmod(tcs_battle.active_player_alliance_index + 1,bm:alliances():count())
+    local next_index = math.fmod(tcs_battle.active_player_alliance_index + 1, bm:alliances():count())
     if next_index == 0 then
         return bm:alliances():count()
     end
@@ -35,11 +35,11 @@ function enable_non_passives(unit, time)
     for key, ability in pairs(unit:owned_non_passive_special_abilities()) do
         unit:disable_special_ability(ability, false)
     end
-    
+
     bm:callback(
-        function() 
-            disable_non_passives(unit) 
-        end, 
+        function()
+            disable_non_passives(unit)
+        end,
         time
     )
 end
@@ -63,12 +63,20 @@ function fix_ai_shooting()
     end
 end
 
+function enable_melee_attacks(unit)
+    unit:set_stat_attribute("melee_disabled", false)
+    --     TODO: Only enable non splash attackers?
+    --     if tcs_splash_units[ai_unit:type()] then
+    --         ai_unit:set_stat_attribute("melee_disabled", false)
+    --     end
+end
+
 function disable_melee_attacks(unit)
     unit:set_stat_attribute("melee_disabled", true)
---     TODO: Only disable splash attackers?
---     if tcs_splash_units[ai_unit:type()] then
---         ai_unit:set_stat_attribute("melee_disabled", true)
---     end
+    --     TODO: Only disable splash attackers?
+    --     if tcs_splash_units[ai_unit:type()] then
+    --         ai_unit:set_stat_attribute("melee_disabled", true)
+    --     end
 end
 
 function enable_unit_move(unit)
@@ -78,13 +86,13 @@ function enable_unit_move(unit)
 end
 
 function enable_unit_shoot(unit)
-local scrunit = bm:get_scriptunit_for_unit(unit);
+    local scrunit = bm:get_scriptunit_for_unit(unit);
     scrunit.uc:reset_ability_number_of_uses("tcs_main_unit_active_shoot")
     unit:disable_special_ability("tcs_main_unit_active_shoot", false)
 end
 
 function enable_unit_fight(unit)
-local scrunit = bm:get_scriptunit_for_unit(unit);
+    local scrunit = bm:get_scriptunit_for_unit(unit);
     scrunit.uc:reset_ability_number_of_uses("tcs_main_unit_active_fight")
     unit:disable_special_ability("tcs_main_unit_active_fight", false)
 end
@@ -110,9 +118,10 @@ function set_active_phase(phase)
     local phase_button_component = find_uicomponent(phase_button_holder, phase)
     phase_button_component:SetState("selected")
     phase_button_component:SetInteractive(false)
-    
+
     if not (phase == "button_fight_phase") then
-        local next_phase_button_component = find_uicomponent(phase_button_holder, tcs_battle.phase_buttons[tcs_battle.phase_button_to_key[phase]+1])
+        local next_phase_button_component = find_uicomponent(phase_button_holder,
+            tcs_battle.phase_buttons[tcs_battle.phase_button_to_key[phase] + 1])
         next_phase_button_component:SetState("active")
         next_phase_button_component:SetInteractive((bm:local_alliance() == tcs_battle.active_player_alliance_index))
     end
@@ -121,16 +130,17 @@ end
 function reset_phases()
     local parent = core:get_ui_root()
     local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
-    
-    local phase_control_panel = core:get_or_create_component("phase_control_panel", "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
-    local phase_button_holder = find_uicomponent(phase_control_panel,"control_buttons")
-    
+
+    local phase_control_panel = core:get_or_create_component("phase_control_panel",
+        "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
+    local phase_button_holder = find_uicomponent(phase_control_panel, "control_buttons")
+
     for key, phase_button in pairs(tcs_battle.phase_buttons) do
         local phase_button_component = find_uicomponent(phase_button_holder, phase_button)
         phase_button_component:SetState("inactive")
         phase_button_component:SetInteractive(false)
     end
-    
+
     -- Disable the Next Phase button when it is not their turn.
     local next_phase_button_component = find_uicomponent(phase_control_panel, "next_phase_button")
     next_phase_button_component:SetDisabled(not (bm:local_alliance() == tcs_battle.active_player_alliance_index))
@@ -139,15 +149,15 @@ function reset_phases()
     else
         next_phase_button_component:SetState("active")
     end
-
 end
 
 function setup_phase_controls()
     local parent = core:get_ui_root()
     local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
-    
-    local phase_control_panel = core:get_or_create_component("phase_control_panel", "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
-    
+
+    local phase_control_panel = core:get_or_create_component("phase_control_panel",
+        "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
+
     reset_phases();
 end
 
@@ -156,7 +166,7 @@ function lua_split(inputstr, sep)
         sep = "%s"
     end
     local t = {}
-    for str in string.gmatch(inputstr, "([^"..sep.."]+)") do
+    for str in string.gmatch(inputstr, "([^" .. sep .. "]+)") do
         table.insert(t, str)
     end
     return t
@@ -170,15 +180,16 @@ end
 function set_active_crest()
     local parent = core:get_ui_root()
     local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
-    
-    local phase_control_panel = core:get_or_create_component("phase_control_panel", "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
-    
+
+    local phase_control_panel = core:get_or_create_component("phase_control_panel",
+        "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
+
     local active_player_crest = find_uicomponent(phase_control_panel, "player_pane", "player_holder", "player_crest")
     local active_player_flag = remake_flag_path(active_player_alliance():armies():item(1):flag_path())
     active_player_crest:SetImagePath(active_player_flag)
-    
+
     local active_player_title = find_uicomponent(phase_control_panel, "player_pane", "player_title")
-    
+
     if tcs_battle.active_player_alliance_index == bm:local_alliance() then
         active_player_title:SetStateText("Your Turn")
     else
@@ -186,14 +197,12 @@ function set_active_crest()
     end
 end
 
-function apply_formed_attack(unit)
-    local scrunit = bm:get_scriptunit_for_unit(unit)
-    scrunit.unit:set_stat_attribute("formed_attack", true)
+function enable_formed_attack(unit)
+    unit:set_stat_attribute("formed_attack", true)
 end
 
 function disable_formed_attack(unit)
-    local scrunit = bm:get_scriptunit_for_unit(unit)
-    scrunit.unit:set_stat_attribute("formed_attack", false)
+    unit:set_stat_attribute("formed_attack", false)
 end
 
 function mapf_to_selected_units(func, time)
@@ -305,7 +314,7 @@ end
 function tcs_get_battleunit_cco(unit_uid)
     local battle_root_cco = cco("CcoBattleRoot", 1);
     local unit_list = battle_root_cco:Call("UnitList");
-    for i=1, battle_root_cco:Call("UnitList.Size") do
+    for i = 1, battle_root_cco:Call("UnitList.Size") do
         if unit_uid == unit_list[i]:Call("UniqueUiId") then
             return unit_list[i];
         end
@@ -316,33 +325,31 @@ end
 function get_selected_unit_ability_cco(ability_record)
     local unit_cco = cco("CcoBattleSelection", 1):Call("FirstUnitContext")
 
-    for i=1, unit_cco:Call("AbilityList.Size") do
+    for i = 1, unit_cco:Call("AbilityList.Size") do
         if unit_cco:Call("AbilityList")[i]:Call("RecordKey") == ability_record then
             return unit_cco:Call("AbilityList")[i]
         end
     end
-    
+
     return nil
 end
 
-
-
 function get_sunit_by_id(uid)
     local enemy_sunits = bm:get_scriptunits_for_main_enemy_army_to_local_player()
-    
+
     for k, unit in pairs(enemy_sunits:get_sunit_table()) do
         if unit.unit:unique_ui_id() == uid then
             return unit
         end
     end
     local friendly_sunits = bm:get_scriptunits_for_local_players_army()
-    
+
     for k, unit in pairs(friendly_sunits:get_sunit_table()) do
         if unit.unit:unique_ui_id() == uid then
             return unit
         end
     end
-    
+
     return nil
 end
 
@@ -350,7 +357,7 @@ end
 -- right at the end of the loading sequence in to any battle
 function battle_startup_test_scripts_here()
     tcs:log("*** tcs script loaded - Tabletop Combat Simulator engaged. ***\n\n");
-    
+
     function active_unit_handler(unit, is_selected)
         if is_selected then
             -- track selected units
@@ -359,62 +366,65 @@ function battle_startup_test_scripts_here()
             -- track unselected units
             tcs_battle.selected_units[unit:unique_ui_id()] = nil;
         end
-        
+
         tcs:log("Selected units:")
-        for k,v in pairs(tcs_battle.selected_units) do
-            tcs:log(k..":"..v:type());
+        for k, v in pairs(tcs_battle.selected_units) do
+            tcs:log(k .. ":" .. v:type());
         end
     end
+
     bm:register_unit_selection_handler("active_unit_handler")
-    
+
     function special_ability_handler(event)
         local event_name = event:get_name()
-        
+
         if not (event_name == "Special Ability") then
             return
         end
-        
+
         local cases = {
             default = function() return end,
-            tcs_main_unit_active_fight = function() mapf_to_selected_units(unit_fight, tcs:get_config("fight_time")*1000) end,
-            tcs_main_unit_active_move = function() mapf_to_selected_units(unit_move, tcs:get_config("move_time")*1000) end,
-            tcs_main_unit_active_shoot = function() mapf_to_selected_units(unit_shoot, tcs:get_config("shoot_time")*1000) end,
+            tcs_main_unit_active_fight = function() mapf_to_selected_units(unit_fight, tcs:get_config("fight_time") *
+                1000) end,
+            tcs_main_unit_active_move = function() mapf_to_selected_units(unit_move, tcs:get_config("move_time") * 1000) end,
+            tcs_main_unit_active_shoot = function() mapf_to_selected_units(unit_shoot, tcs:get_config("shoot_time") *
+                1000) end,
             tcs_main_unit_active_charge = function() mapf_to_selected_units(unit_charge) end,
-            tcs_army_ai_move = function() 
-                mapf_to_ai_units(ai_unit_move, tcs:get_config("ai_move_time")*1000); 
+            tcs_army_ai_move = function()
+                mapf_to_ai_units(ai_unit_move, tcs:get_config("ai_move_time") * 1000);
             end,
-            tcs_army_ai_fight = function() 
-                mapf_to_ai_units(ai_unit_fight, tcs:get_config("ai_fight_time")*1000);
+            tcs_army_ai_fight = function()
+                mapf_to_ai_units(ai_unit_fight, tcs:get_config("ai_fight_time") * 1000);
             end,
-            tcs_army_ai_shoot = function() 
-                mapf_to_ai_units(ai_unit_shoot, tcs:get_config("ai_shoot_time")*1000); 
+            tcs_army_ai_shoot = function()
+                mapf_to_ai_units(ai_unit_shoot, tcs:get_config("ai_shoot_time") * 1000);
             end,
             tcs_army_ai_charge = function() mapf_to_ai_units(ai_unit_charge) end,
-            tcs_army_ai_hero = function() mapf_to_ai_units(enable_non_passives, tcs:get_config("ai_hero_time")*1000) end,
+            tcs_army_ai_hero = function() mapf_to_ai_units(enable_non_passives, tcs:get_config("ai_hero_time") * 1000) end,
         }
 
         local ability_name = event:get_string1();
         tcs:log("Ability used: " .. ability_name);
-        
+
         switch(ability_name, cases)
     end
+
     bm:register_command_handler_callback("Special Ability", special_ability_handler, "special_ability_handler")
-    
 end;
 
 -- Test scripts placed here will be called in battle when deployment phase commences
 function battle_deployment_test_scripts_here()
     tcs:clear_log();
     tcs:log("Battle Deployment started.");
-    
+
     mapf_to_ai_units(disable_non_passives);
     fix_ai_shooting();
     mapf_to_all_units(disable_fire_at_will);
-    
+
     if tcs.force_formed_attack then
-        mapf_to_ai_units(apply_formed_attack)
+        mapf_to_ai_units(enable_formed_attack)
     end
-    
+
     tcs_battle.active_player_alliance_index = bm:random_number(1, 2);
 
     setup_phase_controls()
@@ -423,7 +433,7 @@ end;
 
 function battle_conflict_test_scripts_here()
     tcs:log("Battle Deployment done; combat starting.");
-    
+
     core:trigger_custom_event('button_hero_phase', {})
 end
 
@@ -432,9 +442,8 @@ end
 -----------------------------------------------------
 
 if core:is_battle() then
-	-- in battle, the script is loaded last, so just call the test functions
-	battle_startup_test_scripts_here();
-	bm:register_phase_change_callback("Deployment", battle_deployment_test_scripts_here);
-	bm:register_phase_change_callback("Deployed", battle_conflict_test_scripts_here);
-
+    -- in battle, the script is loaded last, so just call the test functions
+    battle_startup_test_scripts_here();
+    bm:register_phase_change_callback("Deployment", battle_deployment_test_scripts_here);
+    bm:register_phase_change_callback("Deployed", battle_conflict_test_scripts_here);
 end;

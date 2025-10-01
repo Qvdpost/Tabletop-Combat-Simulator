@@ -1,0 +1,4 @@
+invalid_usage_flag	special_ability
+#special_ability_to_invalid_usage_flags_tables;0;db/special_ability_to_invalid_usage_flags_tables/tcs_	
+engaged_in_melee	tcs_main_unit_active_charge
+cannot_find_enemies_in_intercept_range	tcs_main_unit_active_charge
