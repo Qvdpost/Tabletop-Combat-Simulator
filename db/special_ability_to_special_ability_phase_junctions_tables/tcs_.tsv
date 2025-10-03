@@ -7,3 +7,4 @@ order	special_ability	target_self	target_friends	target_enemies	phase
 1	tcs_main_unit_active_fight	true	false	false	tcs_main_unit_active_fight
 1	tcs_main_unit_active_shoot	true	false	false	tcs_main_unit_active_shoot
 1	tcs_ai_unit_passive_ranged_fix	true	false	false	tcs_ai_unit_passive_ranged_fix
+1	tcs_unit_engage_range	true	false	false	tcs_unit_engage_range

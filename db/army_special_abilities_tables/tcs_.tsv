@@ -5,3 +5,4 @@ tcs_army_ai_fight	tcs_army_ai_fight	34007	false
 tcs_army_ai_shoot	tcs_army_ai_shoot	34008	false
 tcs_army_ai_hero	tcs_army_ai_hero	34010	false
 tcs_army_ai_charge	tcs_army_ai_charge	34013	false
+tcs_next_phase	tcs_next_phase	34016	false

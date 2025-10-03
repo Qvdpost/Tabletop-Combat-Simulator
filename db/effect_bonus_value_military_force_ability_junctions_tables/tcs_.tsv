@@ -5,3 +5,4 @@ enable	tcs_army_enable_ai_controls	tcs_army_ai_move
 enable	tcs_army_enable_ai_controls	tcs_army_ai_shoot
 enable	tcs_army_enable_ai_controls	tcs_army_ai_hero
 enable	tcs_army_enable_ai_controls	tcs_army_ai_charge
+enable	tcs_army_enable_ai_controls	tcs_next_phase

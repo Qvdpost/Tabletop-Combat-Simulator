@@ -7,25 +7,35 @@ function ai_freeze_unit(unit)
     unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
     unit:disable_special_ability("tcs_ai_unit_passive_ranged_fix", true)
     disable_melee_attacks(unit)
-    scrunit:halt()
 
-    bm:callback(
-        function()
-            scrunit:release_control()
-            tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") can no longer move.");
-            tcs_battle.ai_actively_moving = math.max(tcs_battle.ai_actively_moving - 1, 0)
-        end,
-        500
-    )
+    scrunit:halt()
+    scrunit:taunt()
+    scrunit:release_control()
+    tcs_battle.ai_actively_moving[unit:unique_ui_id()] = nil
+    tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") can no longer move.");
 end;
+
+function ai_freeze_unit_in_engagement_range(scrunit, callback_name)
+    if scrunit_is_engaged(scrunit, 10) then
+        tcs:log("AI Unit(" .. scrunit.unit:unique_ui_id() .. ") entered engagement range.");
+        bm:remove_callback(callback_name)
+        ai_freeze_unit(scrunit.unit)
+    end
+end
 
 function ai_unit_move(unit, time)
     local scrunit = bm:get_scriptunit_for_unit(unit);
     local callback_name = "freeze_unit_" .. unit:unique_ui_id();
+
     bm:remove_callback(callback_name);
 
+    if scrunit_is_engaged(scrunit) then
+        tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") is engaged, cannot move.");
+        return
+    end
+
     tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") can move.");
-    tcs_battle.ai_actively_moving = tcs_battle.ai_actively_moving + 1
+    tcs_battle.ai_actively_moving[unit:unique_ui_id()] = true
 
     if not unit:is_in_melee() then
         enable_melee_attacks(unit)
@@ -40,33 +50,35 @@ function ai_unit_move(unit, time)
     scrunit:take_control()
     scrunit:release_control()
 
-
-
     bm:callback(
         function()
             if tcs_get_battleunit_cco(unit:unique_ui_id()):Call("IsFiringMissiles") then
                 tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") is firing missiles.");
                 bm:remove_callback(callback_name);
                 ai_freeze_unit(unit)
-            else
-                bm:callback(
-                    function()
-                        if not (unit:is_moving() or unit:is_moving_fast()) then
-                            tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") is not moving.");
-                            bm:remove_callback(callback_name);
-                            ai_freeze_unit(unit)
-                        end
-                    end,
-                    1500
-                )
             end
         end,
         500
     )
 
+    bm:repeat_callback(function() ai_freeze_unit_in_engagement_range(scrunit, callback_name) end, 100,
+        callback_name)
 
     bm:callback(
         function()
+            if not (unit:is_moving() or unit:is_moving_fast()) then
+                tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") is not moving.");
+                bm:remove_callback(callback_name);
+                ai_freeze_unit(unit)
+            end
+        end,
+        2000,
+        callback_name
+    )
+
+    bm:callback(
+        function()
+            bm:remove_callback(callback_name);
             ai_freeze_unit(unit)
         end,
         time,
@@ -79,23 +91,32 @@ function ai_stopfight_unit(unit)
 
     scrunit:take_control()
     unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", false)
+    unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
     disable_melee_attacks(unit)
+    scrunit:stop_attack_closest_enemy()
     scrunit:halt()
+    scrunit:taunt()
+    scrunit:release_control()
 
-    bm:callback(
-        function()
-            scrunit:release_control()
-            tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") can no longer fight.");
-        end,
-        500
-    )
+    tcs_battle.ai_actively_fighting[unit:unique_ui_id()] = nil
+    tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") can no longer fight.");
 end;
 
 function ai_unit_fight(unit, time)
     local scrunit = bm:get_scriptunit_for_unit(unit);
 
+    if not scrunit_is_engaged(scrunit) then
+        tcs:log("Blocking fight; unit(" .. unit:unique_ui_id() .. ") is not engaged!")
+        return
+    end
+
+    tcs_battle.ai_actively_fighting[unit:unique_ui_id()] = true
     unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", true)
     enable_melee_attacks(unit)
+    ai_unit_free_move(unit, time)
+
+    scrunit:take_control()
+    scrunit:start_attack_closest_enemy()
     tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") can fight.");
 
     local callback_name = "stopfight_" .. unit:unique_ui_id();
@@ -116,15 +137,10 @@ function ai_stopshoot_unit(unit)
 
     scrunit:take_control()
     scrunit:halt()
-
-    bm:callback(
-        function()
-            scrunit:release_control()
-            tcs_battle.ai_actively_shooting = math.max(0, tcs_battle.ai_actively_shooting - 1)
-            tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") is done shooting.");
-        end,
-        500
-    )
+    scrunit:taunt()
+    scrunit:release_control()
+    tcs_battle.ai_actively_shooting[unit:unique_ui_id()] = nil
+    tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") is done shooting.");
 end
 
 local function ai_check_slow_projectile(unit, unit_cco, iteration)
@@ -134,8 +150,7 @@ local function ai_check_slow_projectile(unit, unit_cco, iteration)
             function()
                 ai_check_slow_projectile(unit, unit_cco, iteration + 1)
             end,
-            2000,
-            callback_name
+            2000
         )
     else
         tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") has dealt damage recently.");
@@ -148,7 +163,7 @@ function ai_check_stopshoot_unit(unit, time)
 
     local callback_name = "stopshoot_" .. unit:unique_ui_id();
 
-    if battle_unit_cco:Call("DamageInflictedRecently") == 0 and battle_unit_cco:Call("IsFiringMissiles") then
+    if battle_unit_cco and (battle_unit_cco:Call("DamageInflictedRecently") == 0 and battle_unit_cco:Call("IsFiringMissiles")) then
         tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") has dealt no damage yet.");
         bm:callback(
             function()
@@ -175,7 +190,7 @@ function ai_unit_shoot(unit, time)
 
     tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") can shoot.");
 
-    tcs_battle.ai_actively_shooting = tcs_battle.ai_actively_shooting + 1;
+    tcs_battle.ai_actively_shooting[unit:unique_ui_id()] = true
 
     local callback_name = "stopshoot_" .. unit:unique_ui_id();
 
@@ -199,81 +214,55 @@ function ai_unit_shoot(unit, time)
     )
 end
 
-function ai_unit_end_charge(unit)
-    unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
+function ai_unit_end_charge(unit)    
     disable_melee_attacks(unit)
+    unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
 
     local scrunit = bm:get_scriptunit_for_unit(unit);
     scrunit:take_control();
     scrunit:grant_infinite_ammo();
     scrunit:halt();
-
-    bm:callback(
-        function()
-            scrunit:release_control()
-            tcs_battle.ai_actively_charging = math.max(0, tcs_battle.ai_actively_charging - 1)
-            tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") stopped charging.");
-        end,
-        500
-    )
+    scrunit:taunt();
+    scrunit:release_control()
+    tcs_battle.ai_actively_charging[unit:unique_ui_id()] = nil
+    tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") stopped charging.");
 end
 
-function ai_stopcharge_unit(unit, charge_unit, charge_target, callback_name)
+function ai_stopcharge_unit(unit, target, callback_name)
     if unit:is_in_melee() then
         tcs:log("AI Unit (" .. unit:unique_ui_id() .. ") in melee.")
         bm:remove_callback(callback_name)
-        charge_unit:stop_attack_enemy_scriptunits()
-        ai_unit_move(unit, 3000);
 
         bm:callback(
-        function()
-            ai_unit_end_charge(unit)
-        end,
-        3000
-    )
+            function()
+                ai_unit_end_charge(unit)
+            end,
+            3000
+        )
         return
-    -- elseif not unit:is_moving() then
-    --     tcs:log("AI Unit (" .. unit:unique_ui_id() .. ") in not moving. Aborting charge.")
-    --     bm:remove_callback(callback_name)
-    --     charge_unit:stop_attack_enemy_scriptunits()
-    --     ai_unit_end_charge(unit)
-    --     return
     end
+    tcs:log("AI Unit (" .. unit:unique_ui_id() .. ") not yet in melee.")
 
     local scrunit = bm:get_scriptunit_for_unit(unit);
-
-    tcs:log("AI Unit (" .. unit:unique_ui_id() .. ") not yet in melee.")
-    ai_unit_move(unit, 2000);
     scrunit:take_control()
-    if unit:is_ai_controlled() then
-        charge_unit:attack_enemy_scriptunits(charge_target, true)
-    end
-end
-
-function scrunit_is_currently_flying(scrunit)
-    return scrunit.unit:is_currently_flying()
-end
-
-function scrunit_is_currently_grounded(scrunit)
-    return not scrunit_is_currently_flying(scrunit)
+    scrunit.uc:attack_unit(target.unit)
+    tcs:log("Attacking again.")
 end
 
 function ai_unit_charge(unit)
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") charging.");
+    tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") charging.");
     local battle_unit_cco = tcs_get_battleunit_cco(unit:unique_ui_id())
-    tcs_battle.ai_actively_charging = tcs_battle.ai_actively_charging + 1
+    tcs_battle.ai_actively_charging[unit:unique_ui_id()] = true
 
     local scrunit = bm:get_scriptunit_for_unit(unit);
 
-    scrunit:take_control()
-
-    if battle_unit_cco:Call("IsFiringMissiles") then
+    if battle_unit_cco and battle_unit_cco:Call("IsFiringMissiles") then
         tcs:log("Blocking charge; unit(" .. unit:unique_ui_id() .. ") is firing missiles!")
         ai_unit_end_charge(unit)
         return
     end
 
-    if unit:is_in_melee() then
+    if scrunit_is_engaged(scrunit) then
         tcs:log("Blocking charge; unit(" .. unit:unique_ui_id() .. ") is in melee!")
         ai_unit_end_charge(unit)
         return
@@ -281,51 +270,101 @@ function ai_unit_charge(unit)
 
     enable_melee_attacks(unit)
 
-    local player_scrunits = bm:get_scriptunits_for_local_players_army()
+    local ai_target = nearest_enemy_at_destination(scrunit)
+    
+    if ai_target then
+        local charge_distance = unit:unit_distance(ai_target.unit);
+        tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") targeting unit(" .. ai_target.unit:unique_ui_id() .. ") to charge.");
 
-    if not unit:is_currently_flying() then
-        player_scrunits = player_scrunits:filter("charge_targets", scrunit_is_currently_grounded)
-    end
+        if charge_distance > tcs_battle.charge_range then
+            tcs:log("Blocking charge; target is out of range!")
+            ai_unit_end_charge(unit)
+            return
+        end
 
-    local nearest_target_sunit_index = get_nearest(scrunit.unit:position(), player_scrunits)
-    local nearest_target_sunit = player_scrunits:item(nearest_target_sunit_index)
+        if not normalised_dice_check(charge_distance, tcs_battle.charge_range) then
+            tcs:log("Blocking charge; the roll failed!")
+            ai_unit_end_charge(unit)
+            return
+        end
 
-    local charge_distance = scrunit.unit:position():distance_xz(nearest_target_sunit.unit:position());
+        unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
 
-    if charge_distance > tcs_battle.charge_range then
-        tcs:log("Blocking charge; target is out of range!")
+        local callback_name = "ai_stopcharge_" .. unit:unique_ui_id();
+
+        bm:remove_callback(callback_name)
+
+        scrunit:play_sound_charge()
+        scrunit.uc:attack_unit(ai_target.unit)
+        tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") attacking target unit(" .. ai_target.unit:unique_ui_id() .. ")");
+
+        bm:repeat_callback(function() ai_stopcharge_unit(unit, ai_target, callback_name) end, 500,
+            callback_name)
+    else
+        tcs:log("AI has no target to attack.")
         ai_unit_end_charge(unit)
-        return
     end
+end
 
-    local diceroll = 0;
-    for i = 1, tcs_battle.charge_dice_count do
-        diceroll = diceroll + math.ceil(bm:random_number() * (tcs_battle.charge_range / tcs_battle.charge_dice_count))
-    end
+function ai_unit_free_move(unit, time)
+    local scrunit = bm:get_scriptunit_for_unit(unit);
+    local callback_name = "freeze_unit_" .. unit:unique_ui_id();
 
-    tcs:log("AI Charge rolled: " .. diceroll);
+    bm:remove_callback(callback_name);
 
-    if diceroll < charge_distance then
-        tcs:log("Blocking charge; the roll failed!")
-        ai_unit_end_charge(unit)
-        return
-    end
-
-    local callback_name = "ai_stopcharge_" .. unit:unique_ui_id();
-
-    local charge_unit = script_units:new("tcs_charge_unit", scrunit)
-    local charge_target = script_units:new("tcs_charge_target", nearest_target_sunit)
-
-    unit_move(unit, 5000)
+    unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
+    tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") can move freely.");
 
     bm:callback(
         function()
-            scrunit:play_sound_charge()
-            charge_unit:attack_enemy_scriptunits(charge_target, true)
+            bm:remove_callback(callback_name)
+            freeze_unit(unit)
         end,
-        500
+        time,
+        callback_name
+    )
+end
+
+function ai_stopretreat_unit(unit)
+    local scrunit = bm:get_scriptunit_for_unit(unit);
+
+    local callback_name = "stopretreat_unit_" .. unit:unique_ui_id();
+
+    if scrunit_is_engaged(scrunit) then
+        tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") still engaged.")
+        bm:callback(
+            function()
+                stopretreat_unit(unit)
+            end,
+            2000,
+            callback_name
+        )
+        return
+    end
+
+    scrunit:halt()
+
+    tcs_battle.ai_actively_retreating[unit:unique_ui_id()] = false
+
+    tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") stopped retreating.")
+end
+
+function ai_unit_retreat(unit, time)
+    local scrunit = bm:get_scriptunit_for_unit(unit);
+
+    local callback_name = "stopretreat_unit_" .. unit:unique_ui_id();
+
+    scrunit:withdraw(true)
+
+    bm:callback(
+        function()
+            ai_stopretreat_unit(unit)
+        end,
+        time,
+        callback_name
     )
 
-    bm:repeat_callback(function() ai_stopcharge_unit(unit, charge_unit, charge_target, callback_name) end, 1000,
-        callback_name)
+    tcs_battle.ai_actively_retreating[unit:unique_ui_id()] = true
+
+    tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") is retreating.")
 end

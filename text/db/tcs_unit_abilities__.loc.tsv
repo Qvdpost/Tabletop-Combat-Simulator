@@ -20,3 +20,6 @@ unit_abilities_onscreen_name_tcs_army_ai_shoot	AI Shooting phase	false
 unit_abilities_tooltip_text_tcs_army_ai_shoot	Allows all AI units to Activate (Shoot)	false
 unit_abilities_onscreen_name_tcs_main_unit_passive_invulnerable	Inactive (Invulnerable)	false
 unit_abilities_tooltip_text_tcs_main_unit_passive_invulnerable	This unit cannot take damage until it should.	false
+special_ability_phases_onscreen_name_tcs_unit_engage_range	Engagement Range	false
+unit_abilities_tooltip_text_tcs_unit_engage_range	Units cannot move into eachothers sphere of influence freely. You can only charge a unit to bridge this distance. Any unit within the engagement range of a model of a unit is considered in combat with that unit.	false
+unit_abilities_onscreen_name_tcs_unit_engage_range	Engagement Range	false

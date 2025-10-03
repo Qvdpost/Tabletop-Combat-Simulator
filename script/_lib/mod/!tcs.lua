@@ -4,6 +4,7 @@ local tcs = {
         move_time = 30,
         fight_time = 20,
         shoot_time = 10,
+        retreat_time = 10,
         ai_move_time = 30,
         ai_fight_time = 20,
         ai_shoot_time = 10,

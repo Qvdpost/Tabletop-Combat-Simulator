@@ -9,8 +9,7 @@ core:add_listener(
         return context.string == "next_phase_button"
     end,
     function(context)
-        core:trigger_custom_event('tcs_next_phase', {})
-
+        perform_next_phase()
         return true
     end,
     true
@@ -23,8 +22,7 @@ core:add_listener(
         return context.string == "button_move_phase"
     end,
     function(context)
-        core:trigger_custom_event('button_move_phase', {})
-
+        perform_next_phase()
         return true
     end,
     true
@@ -37,8 +35,7 @@ core:add_listener(
         return context.string == "button_shoot_phase"
     end,
     function(context)
-        core:trigger_custom_event('button_shoot_phase', {})
-
+        perform_next_phase()
         return true
     end,
     true
@@ -51,8 +48,7 @@ core:add_listener(
         return context.string == "button_charge_phase"
     end,
     function(context)
-        core:trigger_custom_event('button_charge_phase', {})
-
+        perform_next_phase()
         return true
     end,
     true
@@ -65,8 +61,7 @@ core:add_listener(
         return context.string == "button_fight_phase"
     end,
     function(context)
-        core:trigger_custom_event('button_fight_phase', {})
-
+        perform_next_phase()
         return true
     end,
     true
@@ -124,8 +119,6 @@ core:add_listener(
 
 
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
-            tcs_battle.ai_actively_moving = 0
-
             mapf_to_ai_units(ai_unit_move, tcs:get_config("ai_move_time") * 1000);
 
             local scrunits = bm:get_scriptunits_for_main_enemy_army_to_local_player()
@@ -134,18 +127,22 @@ core:add_listener(
 
             bm:remove_callback(callback_name);
 
-
-            function stopmove_phase()
-                if tcs_battle.ai_actively_moving == 0 then
-                    bm:remove_callback(callback_name);
-                    core:trigger_custom_event("tcs_next_phase", {});
-                end
-            end
-
-            bm:repeat_callback(stopmove_phase, 2000, callback_name)
+            bm:repeat_callback(
+                function()
+                    if next(tcs_battle.ai_actively_moving) == nil then
+                        bm:remove_callback(callback_name);
+                        core:trigger_custom_event("tcs_next_phase", {});
+                    else
+                        tcs:log("AI units still moving.")
+                    end
+                end,
+                2000,
+                callback_name
+            )
         else
             mapf_to_all_units(disable_unit_activations)
             mapf_to_active_player_units(enable_unit_move)
+            mapf_to_active_player_units(enable_unit_retreat)
             reselect_units()
         end
     end,
@@ -166,11 +163,15 @@ core:add_listener(
 
             local callback_name = "stopshoot_phase"
 
+            bm:remove_callback(callback_name);
+
             bm:repeat_callback(
                 function()
-                    if tcs_battle.ai_actively_shooting == 0 then
+                    if next(tcs_battle.ai_actively_shooting) == nil then
                         bm:remove_callback(callback_name)
                         core:trigger_custom_event("tcs_next_phase", {})
+                    else
+                        tcs:log("AI units still shooting.")
                     end
                 end,
                 2000,
@@ -201,16 +202,18 @@ core:add_listener(
 
             bm:remove_callback(callback_name);
 
-            function stopcharge_phase()
-                if tcs_battle.ai_actively_charging == 0 then
-                    bm:remove_callback(callback_name);
-                    core:trigger_custom_event("tcs_next_phase", {});
-                else
-                    tcs:log("AI units still charging.")
-                end
-            end
-
-            bm:repeat_callback(stopcharge_phase, 2000, callback_name)
+            bm:repeat_callback(
+                function()
+                    if next(tcs_battle.ai_actively_charging) == nil then
+                        bm:remove_callback(callback_name);
+                        core:trigger_custom_event("tcs_next_phase", {});
+                    else
+                        tcs:log("AI units still charging.")
+                    end
+                end,
+                2000,
+                callback_name
+            )
         else
             mapf_to_all_units(disable_unit_activations)
             mapf_to_active_player_units(enable_unit_charge)
@@ -230,26 +233,23 @@ core:add_listener(
         set_active_phase("button_fight_phase")
 
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
-            local ai_sunits = bm:get_scriptunits_for_main_enemy_army_to_local_player()
+            mapf_to_ai_units(ai_unit_fight, tcs:get_config("ai_fight_time") * 1000);
+            mapf_to_local_player_units(enable_unit_fight)
 
-            if any_units_in_melee(ai_sunits) then
-                mapf_to_all_units(ai_unit_fight, tcs:get_config("ai_fight_time") * 1000);
-                bm:callback(
-                    function()
-                        core:trigger_custom_event("tcs_next_phase", {})
-                    end,
-                    tcs:get_config("ai_fight_time") * 1000,
-                    "tcs_ai_fight_phase"
-                )
-            else
-                bm:callback(
-                    function()
-                        core:trigger_custom_event("tcs_next_phase", {})
-                    end,
-                    1000,
-                    "tcs_ai_fight_phase"
-                )
+            local callback_name = "stopcombat_phase_ai";
+
+            bm:remove_callback(callback_name);
+
+            function stopcombat_phase()
+                if next(tcs_battle.ai_actively_fighting) == nil then
+                    bm:remove_callback(callback_name);
+                    enable_next_phase_button(true)
+                else
+                    tcs:log("AI units still fighting.")
+                end
             end
+
+            bm:repeat_callback(stopcombat_phase, 2000, callback_name)
         else
             mapf_to_all_units(disable_unit_activations)
             mapf_to_all_units(enable_unit_fight)
@@ -277,7 +277,7 @@ core:add_listener(
 
         local enemy_sunits = bm:get_scriptunits_for_main_enemy_army_to_local_player()
         tcs_battle.last_targeted_enemy_sunit = enemy_sunits:get_sunit_by_name(tostring(battle_root:Call(
-        "CursorContextContext.UnitContext.UniqueUiId")));
+            "CursorContextContext.UnitContext.UniqueUiId")));
 
         tcs:log("New last target: " .. tcs_battle.last_targeted_enemy_sunit.unit:unique_ui_id())
     end,

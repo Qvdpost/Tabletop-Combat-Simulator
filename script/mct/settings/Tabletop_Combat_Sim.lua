@@ -26,6 +26,12 @@ mct_option:slider_set_min_max(0, 300)
 mct_option:slider_set_step_size(1)
 mct_option:set_default_value(10)
 
+local mct_option = mct_mod:add_new_option("retreat_time", "slider")
+mct_option:slider_set_min_max(0, 300)
+mct_option:slider_set_step_size(1)
+mct_option:set_default_value(10)
+
+
 local mct_option = mct_mod:add_new_option("ai_move_time", "slider")
 mct_option:slider_set_min_max(0, 300)
 mct_option:slider_set_step_size(1)

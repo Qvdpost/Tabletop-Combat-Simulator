@@ -7,3 +7,4 @@ tcs_main_unit_active_move	10.0000	positive		false	false	0.0000	0.0000	0.0000	0.0
 tcs_main_unit_active_fight	10.0000	positive		false	false	0.0000	0.0000	0.0000	0.0000	0	-1	false	0.0000	0.0000	false	0				false	true	false	0.0000			false	0.0000	0.0000	false	0.0000
 tcs_main_unit_active_shoot	10.0000	positive		false	false	0.0000	0.0000	0.0000	0.0000	0	-1	false	0.0000	0.0000	false	0				false	true	false	0.0000			false	0.0000	0.0000	false	0.0000
 tcs_ai_unit_passive_ranged_fix	-1.0000	positive		false	false	0.0000	0.0000	0.0000	0.0000	0	0	false	0.0000	0.0000	false	0				true	true	true	1.0000			false	0.0000	0.0000	false	0.0000
+tcs_unit_engage_range	-1.0000	positive		false	false	0.0000	0.0000	0.0000	0.0000	0	0	false	0.0000	0.0000	false	0				false	true	true	0.0000			false	0.0000	0.0000	false	0.0000

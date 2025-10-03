@@ -3,22 +3,24 @@ local tcs_battle = {
     active_player_alliance_index = nil,
     current_phase = nil,
     last_targeted_enemy_sunit = nil,
+    engagement_distance = 30,
     charge_range = 120,
     charge_dice_count = 4,
-    ai_actively_shooting = 0,
-    ai_actively_moving = 0,
-    ai_actively_charging = 0,
+    ai_actively_shooting = {},
+    ai_actively_moving = {},
+    ai_actively_charging = {},
+    ai_actively_fighting = {},
+    ai_actively_retreating = {},
     ai_army_alliance = {},
-    
-    active_augments = {
-        {},
-        {}
-    },
-    
-    active_curses = {
-        {},
-        {}
-    },
+
+    unit_actively_moving = {},
+    unit_actively_fighting = {},
+    unit_actively_shooting = {},
+    unit_actively_charging = {},
+    unit_actively_retreating = {},
+
+    unit_ran = {},
+    unit_retreated = {},
 
     phase_buttons = {
         "button_hero_phase",
@@ -27,7 +29,7 @@ local tcs_battle = {
         "button_charge_phase",
         "button_fight_phase"
     },
-    
+
     phase_button_to_key = {
         button_hero_phase = 1,
         button_move_phase = 2,
@@ -48,7 +50,10 @@ local tcs_battle = {
         "tcs_main_unit_active_move",
         "tcs_main_unit_active_fight",
         "tcs_main_unit_active_shoot",
-        "tcs_main_unit_active_charge"
+        "tcs_main_unit_active_charge",
+        "tcs_main_unit_active_retreat",
+        "tcs_main_unit_active_run",
+        "tcs_next_phase"
     }
 }
 
