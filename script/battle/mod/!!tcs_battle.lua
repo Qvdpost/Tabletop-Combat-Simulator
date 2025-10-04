@@ -3,7 +3,7 @@ local tcs_battle = {
     active_player_alliance_index = nil,
     current_phase = nil,
     last_targeted_enemy_sunit = nil,
-    engagement_distance = 30,
+    engagement_distance = 20,
     charge_range = 120,
     charge_dice_count = 4,
     ai_actively_shooting = {},
@@ -21,6 +21,8 @@ local tcs_battle = {
 
     unit_ran = {},
     unit_retreated = {},
+
+    unit_status = {},
 
     phase_buttons = {
         "button_hero_phase",
@@ -56,5 +58,17 @@ local tcs_battle = {
         "tcs_next_phase"
     }
 }
+
+function tcs_battle:set_unit_status(unit_id, status, seconds)
+    self.unit_status[unit_id] = { status = status, time = seconds}
+end
+
+function tcs_battle:get_unit_status(unit_id)
+    return self.unit_status[unit_id]
+end
+
+function tcs_battle:clear_unit_status(unit_id)
+    self.unit_status[unit_id] = nil
+end
 
 core:add_static_object("tcs_battle", tcs_battle);

@@ -9,7 +9,12 @@ local tcs = {
         ai_fight_time = 20,
         ai_shoot_time = 10,
         ai_hero_time = 5,
-        force_formed_attack = false
+        force_formed_attack = false,
+        warn_about_engagement_range = false,
+        warn_about_engagement_range_distance = 15,
+        default_charge_dice = 2,
+        default_dice_eyes = 6,
+        default_run_dice = 1
     }
 };
 

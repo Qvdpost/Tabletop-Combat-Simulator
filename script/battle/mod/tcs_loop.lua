@@ -72,8 +72,28 @@ core:add_listener(
     "tcs_next_phase",
     true,
     function(context)
+        if not bm:is_multiplayer() then
+            if tcs_battle.current_phase == "button_fight_phase" then
+                tcs_battle.active_player_alliance_index = get_next_alliance_index()
+            end
+
+            core:trigger_custom_event(tcs_battle.phase_transition_map[tcs_battle.current_phase], {})
+            return
+        end
+
         if tcs_battle.current_phase == "button_fight_phase" then
-            tcs_battle.active_player_alliance_index = get_next_alliance_index()
+            if tcs_battle.active_player_alliance_index == bm:local_alliance() and is_enabled_next_phase_button() then
+                enable_next_phase_button(false)
+            elseif not (tcs_battle.active_player_alliance_index == bm:local_alliance()) and not is_enabled_next_phase_button() then
+                enable_next_phase_button(true)
+            elseif tcs_battle.active_player_alliance_index == bm:local_alliance() and not is_enabled_next_phase_button() then
+                tcs_battle.active_player_alliance_index = get_next_alliance_index()
+                core:trigger_custom_event(tcs_battle.phase_transition_map[tcs_battle.current_phase], {})
+            elseif not (tcs_battle.active_player_alliance_index == bm:local_alliance()) and is_enabled_next_phase_button() then
+                tcs_battle.active_player_alliance_index = get_next_alliance_index()
+                core:trigger_custom_event(tcs_battle.phase_transition_map[tcs_battle.current_phase], {})
+            end
+            return
         end
 
         core:trigger_custom_event(tcs_battle.phase_transition_map[tcs_battle.current_phase], {})
@@ -142,6 +162,7 @@ core:add_listener(
         else
             mapf_to_all_units(disable_unit_activations)
             mapf_to_active_player_units(enable_unit_move)
+            mapf_to_active_player_units(enable_unit_run)
             mapf_to_active_player_units(enable_unit_retreat)
             reselect_units()
         end

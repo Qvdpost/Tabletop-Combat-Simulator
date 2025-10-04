@@ -91,8 +91,8 @@ function ai_stopfight_unit(unit)
 
     scrunit:take_control()
     unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", false)
-    unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
     disable_melee_attacks(unit)
+
     scrunit:stop_attack_closest_enemy()
     scrunit:halt()
     scrunit:taunt()
@@ -113,7 +113,13 @@ function ai_unit_fight(unit, time)
     tcs_battle.ai_actively_fighting[unit:unique_ui_id()] = true
     unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", true)
     enable_melee_attacks(unit)
-    ai_unit_free_move(unit, time)
+
+    bm:callback(
+        function()
+            unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
+        end,
+        time/2
+    )
 
     scrunit:take_control()
     scrunit:start_attack_closest_enemy()
@@ -228,7 +234,8 @@ function ai_unit_end_charge(unit)
     tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") stopped charging.");
 end
 
-function ai_stopcharge_unit(unit, target, callback_name)
+function ai_stopcharge_unit(unit, target, overcharge_time, callback_name)
+    local scrunit = bm:get_scriptunit_for_unit(unit);
     if unit:is_in_melee() then
         tcs:log("AI Unit (" .. unit:unique_ui_id() .. ") in melee.")
         bm:remove_callback(callback_name)
@@ -237,16 +244,19 @@ function ai_stopcharge_unit(unit, target, callback_name)
             function()
                 ai_unit_end_charge(unit)
             end,
-            3000
+            overcharge_time
         )
         return
+    -- elseif not unit:is_moving() then
+    --     tcs:log("AI Unit (" .. unit:unique_ui_id() .. ") has stopped moving at destination (stuck in the air?).")
+    --     bm:remove_callback(callback_name)
+    --     ai_unit_end_charge(unit)
+    --     return
     end
-    tcs:log("AI Unit (" .. unit:unique_ui_id() .. ") not yet in melee.")
 
-    local scrunit = bm:get_scriptunit_for_unit(unit);
     scrunit:take_control()
-    scrunit.uc:attack_unit(target.unit)
-    tcs:log("Attacking again.")
+    scrunit.uc:attack_unit(target.unit, true, true)
+    tcs:log("AI Unit (" .. unit:unique_ui_id() .. ") not yet in melee.")
 end
 
 function ai_unit_charge(unit)
@@ -271,7 +281,7 @@ function ai_unit_charge(unit)
     enable_melee_attacks(unit)
 
     local ai_target = nearest_enemy_at_destination(scrunit)
-    
+
     if ai_target then
         local charge_distance = unit:unit_distance(ai_target.unit);
         tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") targeting unit(" .. ai_target.unit:unique_ui_id() .. ") to charge.");
@@ -282,11 +292,16 @@ function ai_unit_charge(unit)
             return
         end
 
-        if not normalised_dice_check(charge_distance, tcs_battle.charge_range) then
-            tcs:log("Blocking charge; the roll failed!")
+        local diceroll = roll_dice(tcs:get_config("default_charge_dice"), tcs:get_config("default_dice_eyes"))
+        local normalised_charge_distance = normalised_distance(charge_distance, tcs_battle.charge_range)
+
+        if not (diceroll >= normalised_charge_distance) then
+            tcs:log("Blocking charge; the roll failed: " .. diceroll .. " / " .. normalised_charge_distance)
             ai_unit_end_charge(unit)
             return
         end
+
+        local overcharge_time = ((diceroll - normalised_charge_distance) / (tcs:get_config("default_charge_dice") * tcs:get_config("default_dice_eyes"))) * tcs:get_config("move_time") * 1000;
 
         unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
 
@@ -294,12 +309,21 @@ function ai_unit_charge(unit)
 
         bm:remove_callback(callback_name)
 
+        scrunit:take_control()
         scrunit:play_sound_charge()
-        scrunit.uc:attack_unit(ai_target.unit)
+        scrunit.uc:attack_unit(ai_target.unit, true, true)
+
+
         tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") attacking target unit(" .. ai_target.unit:unique_ui_id() .. ")");
 
-        bm:repeat_callback(function() ai_stopcharge_unit(unit, ai_target, callback_name) end, 500,
+        bm:callback(
+            function()
+                bm:repeat_callback(function() ai_stopcharge_unit(unit, ai_target, overcharge_time, callback_name) end, 1000,
             callback_name)
+            end,
+            2000
+        )
+        
     else
         tcs:log("AI has no target to attack.")
         ai_unit_end_charge(unit)

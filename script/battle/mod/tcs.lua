@@ -97,7 +97,6 @@ end
 function enable_unit_fight(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
     if scrunit_is_engaged(scrunit) and not tcs_battle.unit_ran[unit:unique_ui_id()] and not tcs_battle.unit_retreated[unit:unique_ui_id()] then
-        local scrunit = bm:get_scriptunit_for_unit(unit);
         scrunit.uc:reset_ability_number_of_uses("tcs_main_unit_active_fight")
         unit:disable_special_ability("tcs_main_unit_active_fight", false)
     end
@@ -106,7 +105,6 @@ end
 function enable_unit_charge(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
     if not scrunit_is_engaged(scrunit) and not tcs_battle.unit_ran[unit:unique_ui_id()] and not tcs_battle.unit_retreated[unit:unique_ui_id()] then
-        local scrunit = bm:get_scriptunit_for_unit(unit);
         scrunit.uc:reset_ability_number_of_uses("tcs_main_unit_active_charge")
         unit:disable_special_ability("tcs_main_unit_active_charge", false)
     end
@@ -133,6 +131,58 @@ end
 function disable_unit_activations(unit)
     for key, ability in pairs(tcs_battle.unit_activations) do
         unit:disable_special_ability(ability, true)
+    end
+end
+
+function create_unit_status()
+    local parent = core:get_ui_root()
+    local info_panel = find_uicomponent(parent, "hud_battle", "info_panel_parent")
+
+    local info_background = find_uicomponent(info_panel, "info_panel_background")
+
+    local unit_status_component = core:get_or_create_component("unit_status", "ui/templates/tcs_unit_status.twui.xml", info_panel)
+
+    if not info_background:VisibleFromRoot() then
+        unit_status_component:Destroy()
+        return
+    end
+
+    local unit_cco = find_uicomponent(parent, "hud_battle", "info_panel_parent", "info_panel_background"):GetContextObject("CcoUnitDetails")
+
+    if not unit_cco then
+        return
+    end
+
+    unit_status_component:SetDockingPoint(2)
+    unit_status_component:SetDockOffset(0, -20)
+
+    local unit_status = tcs_battle:get_unit_status(unit_cco:Call("BattleUnitContext.UniqueUiId"))
+    local some_text = "Unit is currently " 
+    
+    if unit_status then
+        some_text = some_text .. unit_status.status
+
+        if unit_status.time then
+            some_text = some_text .. " for " .. unit_status.time .. " seconds"
+        end
+    else
+        some_text = some_text .. "idle"
+    end
+
+    local text_width, text_height = unit_status_component:TextDimensionsForText(some_text)
+    unit_status_component:SetCanResizeWidth(true)
+    unit_status_component:Resize(text_width + 10, text_height)
+    unit_status_component:SetStateText(some_text)
+end
+
+function decrease_unit_status_time(unit_uid)
+    local current_status = tcs_battle:get_unit_status(unit_uid)
+    local new_time = current_status.time - 1
+
+    if new_time == 0 then
+        tcs_battle:clear_unit_status(unit_uid)
+    else
+        tcs_battle:set_unit_status(unit_uid, current_status.status, new_time)
     end
 end
 
@@ -165,6 +215,13 @@ function enable_next_phase_button(bool)
     else
         next_phase_button_component:SetState("active")
     end
+end
+
+function is_enabled_next_phase_button()
+    local parent = core:get_ui_root()
+    local next_phase_button_component = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar", "phase_control_panel", "next_phase_button")
+
+    return next_phase_button_component:IsInteractive()
 end
 
 function reset_phases()
@@ -251,15 +308,12 @@ function roll_dice(n, eyes)
     return diceroll
 end
 
-function normalised_dice_check(target, range, number_of_dice, size_of_dice)
+function normalised_distance(target, range, number_of_dice, size_of_dice)
     number_of_dice = number_of_dice or 2
-    size_of_dice = size_of_dice or 6
-    check = (((target - (range / 6)) / (range - (range / 6))) * ((number_of_dice * size_of_dice) - number_of_dice)) + number_of_dice
+    size_of_dice = size_of_dice or tcs:get_config("default_dice_eyes")
+    check = (((target - (range / size_of_dice)) / (range - (range / size_of_dice))) * ((number_of_dice * size_of_dice) - number_of_dice)) + number_of_dice
 
-    local diceroll = roll_dice(number_of_dice, size_of_dice)
-
-    tcs:log("Rolled a " .. diceroll .. " (target: " .. check .. ")");
-    return diceroll >= check
+    return check
 end
 
 function scrunit_is_currently_flying(scrunit)
@@ -599,6 +653,14 @@ function battle_conflict_test_scripts_here()
     tcs:log("Battle Deployment done; combat starting.");
 
     core:trigger_custom_event('button_hero_phase', {})
+
+    bm:repeat_real_callback(
+        function()
+            create_unit_status()
+        end,
+        200,
+        "tcs_unit_status"
+    )
 end
 
 -----------------------------------------------------

@@ -57,6 +57,17 @@ option_tcs_formed_attack_enabled:set_text("Force Formed Attack")
 option_tcs_formed_attack_enabled:set_tooltip_text("If enabled, AI units will be put in Formed Attack to maintain formation.");
 option_tcs_formed_attack_enabled:set_default_value(false);
 
+local option_tcs_engagement_warning_enabled = mct_mod:add_new_option("warn_about_engagement_range", "checkbox");
+option_tcs_formed_attack_enabled:set_text("Engagement Range Warning")
+option_tcs_formed_attack_enabled:set_tooltip_text("If enabled, the game will slow down and get a warning about moving too close to the Engagement range of an enemy unit. This provides you time to intervene before your unit will freeze just outside engagement range.");
+option_tcs_formed_attack_enabled:set_default_value(false);
+
+local mct_option = mct_mod:add_new_option("warn_about_engagement_range_distance", "slider")
+mct_option:slider_set_min_max(10, 60)
+mct_option:set_tooltip_text("The distance to an opponent unit's engagement range that you want to receive an intervention at.");
+mct_option:slider_set_step_size(1)
+mct_option:set_default_value(15)
+
 local option_pttg_logging_enabled = mct_mod:add_new_option("logging_enabled", "checkbox");
 option_pttg_logging_enabled:set_text("Enable logging");
 option_pttg_logging_enabled:set_tooltip_text("If enabled, a log will be populated as you play. Use it to report bugs!");

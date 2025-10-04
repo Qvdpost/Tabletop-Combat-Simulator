@@ -23,3 +23,24 @@ unit_abilities_tooltip_text_tcs_main_unit_passive_invulnerable	This unit cannot 
 special_ability_phases_onscreen_name_tcs_unit_engage_range	Engagement Range	false
 unit_abilities_tooltip_text_tcs_unit_engage_range	Units cannot move into eachothers sphere of influence freely. You can only charge a unit to bridge this distance. Any unit within the engagement range of a model of a unit is considered in combat with that unit.	false
 unit_abilities_onscreen_name_tcs_unit_engage_range	Engagement Range	false
+unit_abilities_tooltip_text_tcs_main_unit_active_charge	Activates this unit to charge a target unit within range. A roll is made to determine the success of the charge.	false
+unit_abilities_onscreen_name_tcs_main_unit_active_charge	Activate (charge)	false
+unit_abilities_tooltip_text_tcs_army_ai_charge	Forces all AI units to make a charge activation.	false
+unit_abilities_onscreen_name_tcs_army_ai_charge	AI Charge	false
+unit_abilities_tooltip_text_tcs_army_ai_hero	Enables AI Character abilities so they can cast spells and use special abilities.	false
+unit_abilities_onscreen_name_tcs_army_ai_hero	AI Hero Phase	false
+unit_abilities_tooltip_text_tcs_ai_unit_passive_ranged_fix	Enables AI units to shoot when moving so they won't move their ranged units into melee during the movement phase.	false
+unit_abilities_onscreen_name_tcs_ai_unit_passive_ranged_fix	AI Ranged Fix	false
+unit_abilities_tooltip_text_tcs_main_unit_active_retreat	Retreats the unit from combat, but takes away their ability to shoot or charge later this turn.	false
+unit_abilities_onscreen_name_tcs_main_unit_active_retreat	Activate (retreat)	false
+unit_abilities_tooltip_text_tcs_next_phase	Progresses to the next phase.	false
+unit_abilities_onscreen_name_tcs_next_phase	Next Phase	false
+unit_abilities_tooltip_text_tcs_main_unit_active_run	Allows this unit to run up to twice the distance it could otherwise move. Exact extra distance is determined by a dice roll.	false
+unit_abilities_onscreen_name_tcs_main_unit_active_run	Activate (run)	false
+special_ability_phases_onscreen_name_tcs_main_unit_passive_inactive_fighting	Fight Inactive	false
+special_ability_phases_onscreen_name_tcs_main_unit_passive_stationary	Move Inactive	false
+special_ability_phases_onscreen_name_tcs_main_unit_passive_inactive_shooting	Shoot Inactive	false
+special_ability_phases_onscreen_name_tcs_main_unit_active_move	Move Active	false
+special_ability_phases_onscreen_name_tcs_main_unit_active_fight	Fight Active	false
+special_ability_phases_onscreen_name_tcs_main_unit_active_shoot	Shoot Active	false
+special_ability_phases_onscreen_name_tcs_ai_unit_passive_ranged_fix	AI Ranged Fix	false
