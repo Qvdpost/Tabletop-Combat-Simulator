@@ -9,6 +9,7 @@ core:add_listener(
         return context.string == "next_phase_button"
     end,
     function(context)
+        stop_highlight_next_phase_button()
         perform_next_phase()
         return true
     end,
@@ -83,13 +84,18 @@ core:add_listener(
 
         if tcs_battle.current_phase == "button_fight_phase" then
             if tcs_battle.active_player_alliance_index == bm:local_alliance() and is_enabled_next_phase_button() then
+                -- 1. Local player turn and next phase button enabled -> pass priority
                 enable_next_phase_button(false)
             elseif not (tcs_battle.active_player_alliance_index == bm:local_alliance()) and not is_enabled_next_phase_button() then
+                -- Opponent's turn and phase button disabled -> gain priority
                 enable_next_phase_button(true)
+                highlight_next_phase_button(3)
             elseif tcs_battle.active_player_alliance_index == bm:local_alliance() and not is_enabled_next_phase_button() then
+                -- After 1.  Local player turn and the phase button disabled -> trigger next turn.
                 tcs_battle.active_player_alliance_index = get_next_alliance_index()
                 core:trigger_custom_event(tcs_battle.phase_transition_map[tcs_battle.current_phase], {})
             elseif not (tcs_battle.active_player_alliance_index == bm:local_alliance()) and is_enabled_next_phase_button() then
+                -- Opponent's turn and next_phase button is enabled.
                 tcs_battle.active_player_alliance_index = get_next_alliance_index()
                 core:trigger_custom_event(tcs_battle.phase_transition_map[tcs_battle.current_phase], {})
             end
@@ -108,22 +114,59 @@ core:add_listener(
     function(context)
         tcs:log("Hero Phase started: ")
 
-        reset_phases()
-        set_active_phase("button_hero_phase")
-        set_active_crest()
+        enable_next_phase_button(false)
         mapf_to_all_units(disable_unit_activations)
         reselect_units()
 
-        if not (active_player_alliance():armies():item(1):is_player_controlled()) then
-            mapf_to_ai_units(enable_non_passives, tcs:get_config("ai_hero_time") * 1000)
-            bm:callback(
-                function()
-                    core:trigger_custom_event("tcs_next_phase", {})
-                end,
-                tcs:get_config("ai_hero_time") * 1000,
-                "tcs_ai_hero_phase"
-            )
-        end
+        tcs_battle.unit_ran = {};
+        tcs_battle.unit_retreated = {};
+        mapf_to_active_player_units(enable_morale)
+
+        local morale_delay = 5000
+        battleshock_tickdown(morale_delay/1000)
+
+        bm:callback(
+            function()
+                mapf_to_active_player_units(unit_break, tcs:get_config("unit_break_duration") * 1000)
+
+                bm:callback(
+                    function()
+                        mapf_to_active_player_units(disable_morale)
+
+                        set_active_crest()
+
+                        local battleshock_delay = 500
+                        if next(tcs_battle.unit_retreated) then
+                            battleshock_delay = tcs:get_config("unit_break_duration") * 1000
+                        end
+                        bm:callback(
+                            function()
+                                enable_next_phase_button((bm:local_alliance() == tcs_battle.active_player_alliance_index))
+                                reset_phases()
+                                set_active_phase("button_hero_phase")
+                            end,
+                            battleshock_delay,
+                            "tcs_ai_hero_phase"
+                        )
+                        if not (active_player_alliance():armies():item(1):is_player_controlled()) then
+                            local ai_hero_time = tcs:get_config("ai_hero_time") * 1000
+                            mapf_to_ai_units(enable_non_passives, ai_hero_time)
+
+
+                            bm:callback(
+                            function()
+                                core:trigger_custom_event("tcs_next_phase", {})
+                            end,
+                            math.max(battleshock_delay, ai_hero_time),
+                            "tcs_ai_hero_phase"
+                        )
+                        end
+                    end,
+                    500
+                )
+            end,
+            morale_delay
+        )
     end,
     true
 )
@@ -265,6 +308,7 @@ core:add_listener(
                 if next(tcs_battle.ai_actively_fighting) == nil then
                     bm:remove_callback(callback_name);
                     enable_next_phase_button(true)
+                    highlight_next_phase_button(3)
                 else
                     tcs:log("AI units still fighting.")
                 end

@@ -97,12 +97,12 @@
 			uniqueguid="A83A3A7B-2A20-7AF3-78D50A1B59C941F2"
 			currentstate="161C1E23-66DD-8137-D8AD5F45DC720CE6"
 			defaultstate="161C1E23-66DD-8137-D8AD5F45DC720CE6">
-			<!--<componentimages>
+			<componentimages>
 				<component_image
 					this="1145C1F0-FCCD-A64E-18A86055DF74C92A"
 					uniqueguid="1145C1F0-FCCD-A64E-18A86055DF74C92A"
-					imagepath="ui/skins/default/panel_subtitle_header.png"/>
-			</componentimages>-->
+					imagepath="ui/skins/default/frame_text.png"/>
+			</componentimages>
 			<states>
 				<newstate
 					this="161C1E23-66DD-8137-D8AD5F45DC720CE6"
@@ -110,28 +110,26 @@
 					width="50"
 					height="14"
 					uniqueguid="161C1E23-66DD-8137-D8AD5F45DC720CE6">
-					<!--<imagemetrics>
+					<imagemetrics>
 						<image
 							this="9ACC09C9-63FE-5F85-039B8E1A9ED45176"
 							uniqueguid="9ACC09C9-63FE-5F85-039B8E1A9ED45176"
 							componentimage="1145C1F0-FCCD-A64E-18A86055DF74C92A"
-							offset="0.00,0.00"
 							width="60"
-							height="52"
+							height="14"
 							tile="true"
 							canresizeheight="false"
-							canresizewidth="false"
 							dockpoint="Center"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>-->
+							margin="3.00,3.00,3.00,3.00"/>
+					</imagemetrics>
                     <component_text
 						text="Active Player:"
                         textvalign="Center"
-                        texthalign="Center"
+                        texthalign="Left"
                         textxoffset="5.00,5.00"
 						textlabel="tcs_active_player"
-						font_m_font_name="body_10"
-						font_m_size="10"
+						font_m_font_name="body_8"
+						font_m_size="8"
 						font_m_colour="#FFF8D7FF"
 						font_m_leading="3"
 						fontcat_name="body_10"/>

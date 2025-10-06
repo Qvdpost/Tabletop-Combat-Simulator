@@ -13,7 +13,7 @@ end
 function get_next_alliance_index(index)
     index = index or tcs_battle.active_player_alliance_index
     local next_index = math.fmod(index + 1, bm:alliances():count())
-    
+
     if next_index == 0 then
         return bm:alliances():count()
     end
@@ -78,9 +78,21 @@ function disable_melee_attacks(unit)
     --     end
 end
 
+function enable_morale(unit)
+    local scrunit = bm:get_scriptunit_for_unit(unit)
+    scrunit:morale_behavior_default()
+    scrunit:hide_unbreakable_in_ui(false)
+end
+
+function disable_morale(unit)
+    local scrunit = bm:get_scriptunit_for_unit(unit)
+    scrunit:morale_behavior_fearless()
+    scrunit:hide_unbreakable_in_ui(true)
+end
+
 function enable_unit_move(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    if not scrunit_is_engaged(scrunit) then
+    if not tcs_battle.unit_retreated[unit:unique_ui_id()] and not scrunit_is_engaged(scrunit) then
         scrunit.uc:reset_ability_number_of_uses("tcs_main_unit_active_move")
         unit:disable_special_ability("tcs_main_unit_active_move", false)
     end
@@ -88,7 +100,7 @@ end
 
 function enable_unit_shoot(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    if  not tcs_battle.unit_ran[unit:unique_ui_id()] and not tcs_battle.unit_retreated[unit:unique_ui_id()] then
+    if not tcs_battle.unit_ran[unit:unique_ui_id()] and not tcs_battle.unit_retreated[unit:unique_ui_id()] then
         scrunit.uc:reset_ability_number_of_uses("tcs_main_unit_active_shoot")
         unit:disable_special_ability("tcs_main_unit_active_shoot", false)
     end
@@ -112,7 +124,7 @@ end
 
 function enable_unit_retreat(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    if scrunit_is_engaged(scrunit) then
+    if not tcs_battle.unit_retreated[unit:unique_ui_id()] and scrunit_is_engaged(scrunit) then
         local scrunit = bm:get_scriptunit_for_unit(unit);
         scrunit.uc:reset_ability_number_of_uses("tcs_main_unit_active_retreat")
         unit:disable_special_ability("tcs_main_unit_active_retreat", false)
@@ -121,7 +133,7 @@ end
 
 function enable_unit_run(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    if not scrunit_is_engaged(scrunit) then
+    if not tcs_battle.unit_retreated[unit:unique_ui_id()] and not scrunit_is_engaged(scrunit) then
         local scrunit = bm:get_scriptunit_for_unit(unit);
         scrunit.uc:reset_ability_number_of_uses("tcs_main_unit_active_run")
         unit:disable_special_ability("tcs_main_unit_active_run", false)
@@ -132,128 +144,6 @@ function disable_unit_activations(unit)
     for key, ability in pairs(tcs_battle.unit_activations) do
         unit:disable_special_ability(ability, true)
     end
-end
-
-function create_unit_status()
-    local parent = core:get_ui_root()
-    local info_panel = find_uicomponent(parent, "hud_battle", "info_panel_parent")
-
-    local info_background = find_uicomponent(info_panel, "info_panel_background")
-
-    local unit_status_component = core:get_or_create_component("unit_status", "ui/templates/tcs_unit_status.twui.xml", info_panel)
-
-    if not info_background:VisibleFromRoot() then
-        unit_status_component:Destroy()
-        return
-    end
-
-    local unit_cco = find_uicomponent(parent, "hud_battle", "info_panel_parent", "info_panel_background"):GetContextObject("CcoUnitDetails")
-
-    if not unit_cco then
-        return
-    end
-
-    unit_status_component:SetDockingPoint(2)
-    unit_status_component:SetDockOffset(0, -20)
-
-    local unit_status = tcs_battle:get_unit_status(unit_cco:Call("BattleUnitContext.UniqueUiId"))
-    local some_text = "Unit is currently " 
-    
-    if unit_status then
-        some_text = some_text .. unit_status.status
-
-        if unit_status.time then
-            some_text = some_text .. " for " .. unit_status.time .. " seconds"
-        end
-    else
-        some_text = some_text .. "idle"
-    end
-
-    local text_width, text_height = unit_status_component:TextDimensionsForText(some_text)
-    unit_status_component:SetCanResizeWidth(true)
-    unit_status_component:Resize(text_width + 10, text_height)
-    unit_status_component:SetStateText(some_text)
-end
-
-function decrease_unit_status_time(unit_uid)
-    local current_status = tcs_battle:get_unit_status(unit_uid)
-    local new_time = current_status.time - 1
-
-    if new_time == 0 then
-        tcs_battle:clear_unit_status(unit_uid)
-    else
-        tcs_battle:set_unit_status(unit_uid, current_status.status, new_time)
-    end
-end
-
-function set_active_phase(phase)
-    tcs_battle.current_phase = phase;
-    local parent = core:get_ui_root()
-    local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
-    local phase_button_holder = find_uicomponent(bop_holder, "phase_control_panel", "control_buttons")
-
-    local phase_button_component = find_uicomponent(phase_button_holder, phase)
-    phase_button_component:SetState("selected")
-    phase_button_component:SetInteractive(false)
-
-    if not (phase == "button_fight_phase") then
-        local next_phase_button_component = find_uicomponent(phase_button_holder,
-            tcs_battle.phase_buttons[tcs_battle.phase_button_to_key[phase] + 1])
-        next_phase_button_component:SetState("active")
-        next_phase_button_component:SetInteractive((bm:local_alliance() == tcs_battle.active_player_alliance_index))
-    end
-end
-
-function enable_next_phase_button(bool)
-    local parent = core:get_ui_root()
-    local next_phase_button_component = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar", "phase_control_panel", "next_phase_button")
-
-    next_phase_button_component:SetDisabled(not bool)
-
-    if not bool then
-        next_phase_button_component:SetState("inactive")
-    else
-        next_phase_button_component:SetState("active")
-    end
-end
-
-function is_enabled_next_phase_button()
-    local parent = core:get_ui_root()
-    local next_phase_button_component = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar", "phase_control_panel", "next_phase_button")
-
-    return next_phase_button_component:IsInteractive()
-end
-
-function reset_phases()
-    local parent = core:get_ui_root()
-    local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
-
-    local phase_control_panel = core:get_or_create_component("phase_control_panel",
-        "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
-    local phase_button_holder = find_uicomponent(phase_control_panel, "control_buttons")
-
-    for key, phase_button in pairs(tcs_battle.phase_buttons) do
-        local phase_button_component = find_uicomponent(phase_button_holder, phase_button)
-        phase_button_component:SetState("inactive")
-        phase_button_component:SetInteractive(false)
-    end
-
-    -- Disable the Next Phase button when it is not their turn.
-    enable_next_phase_button((bm:local_alliance() == tcs_battle.active_player_alliance_index))
-
-    -- Reset info on units that ran/retreated
-    tcs_battle.unit_ran = {};
-    tcs_battle.unit_retreated = {};
-end
-
-function setup_phase_controls()
-    local parent = core:get_ui_root()
-    local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
-
-    local phase_control_panel = core:get_or_create_component("phase_control_panel",
-        "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
-
-    reset_phases();
 end
 
 function lua_split(inputstr, sep)
@@ -267,37 +157,17 @@ function lua_split(inputstr, sep)
     return t
 end
 
-function remake_flag_path(flag_path)
-    local flag_path_parts = lua_split(flag_path, "\\")
-    return flag_path_parts[1] .. "/" .. flag_path_parts[2] .. "/" .. flag_path_parts[3] .. "/mon_64.png"
-end
-
-function set_active_crest()
-    local parent = core:get_ui_root()
-    local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
-
-    local phase_control_panel = core:get_or_create_component("phase_control_panel",
-        "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
-
-    local active_player_crest = find_uicomponent(phase_control_panel, "player_pane", "player_holder", "player_crest")
-    local active_player_flag = remake_flag_path(active_player_alliance():armies():item(1):flag_path())
-    active_player_crest:SetImagePath(active_player_flag)
-
-    local active_player_title = find_uicomponent(phase_control_panel, "player_pane", "player_title")
-
-    if tcs_battle.active_player_alliance_index == bm:local_alliance() then
-        active_player_title:SetStateText("Your Turn")
-    else
-        active_player_title:SetStateText("Their Turn")
-    end
-end
-
 function enable_formed_attack(unit)
+    local scrunit = bm:get_scriptunit_for_unit(unit)
     unit:set_stat_attribute("formed_attack", true)
+    scrunit:change_behaviour_active("formed_attack", true)
 end
 
 function disable_formed_attack(unit)
+    local scrunit = bm:get_scriptunit_for_unit(unit)
+    -- TODO: Exclude Cathay attribute groups
     unit:set_stat_attribute("formed_attack", false)
+    scrunit:change_behaviour_active("formed_attack", false)
 end
 
 function roll_dice(n, eyes)
@@ -308,10 +178,11 @@ function roll_dice(n, eyes)
     return diceroll
 end
 
-function normalised_distance(target, range, number_of_dice, size_of_dice)
+function normalise_to_range(target, range, number_of_dice, size_of_dice)
     number_of_dice = number_of_dice or 2
     size_of_dice = size_of_dice or tcs:get_config("default_dice_eyes")
-    check = (((target - (range / size_of_dice)) / (range - (range / size_of_dice))) * ((number_of_dice * size_of_dice) - number_of_dice)) + number_of_dice
+    check = (((target - (range / size_of_dice)) / (range - (range / size_of_dice))) * ((number_of_dice * size_of_dice) - number_of_dice)) +
+        number_of_dice
 
     return check
 end
@@ -382,11 +253,16 @@ function scrunit_is_engaged(scrunit, offset)
 end
 
 function perform_next_phase()
-    bm:alliances():item(bm:local_alliance()):armies():item(bm:local_army()):use_special_ability("tcs_next_phase", battle_vector:new())
+    bm:alliances():item(bm:local_alliance()):armies():item(bm:local_army()):use_special_ability("tcs_next_phase",
+        battle_vector:new())
 end
 
 function mapf_to_selected_units(func, time, ability)
     local time = time or nil;
+    tcs:log("Selected units:")
+    for k, v in pairs(tcs_battle.selected_units) do
+        tcs:log(k .. ":" .. v:type());
+    end
     for unit_id, unit in pairs(tcs_battle.selected_units) do
         if unit:can_perform_special_ability(ability) then
             local battle_ability = get_unit_battle_ability_cco(unit, ability)
@@ -578,15 +454,12 @@ function battle_startup_test_scripts_here()
     function active_unit_handler(unit, is_selected)
         if is_selected then
             -- track selected units
+            -- tcs:log("Selected: " .. unit:unique_ui_id() .. ":" .. unit:type())
             tcs_battle.selected_units[unit:unique_ui_id()] = unit;
         else
             -- track unselected units
+            -- tcs:log("Unselected: " .. unit:unique_ui_id() .. ":" .. unit:type())
             tcs_battle.selected_units[unit:unique_ui_id()] = nil;
-        end
-
-        tcs:log("Selected units:")
-        for k, v in pairs(tcs_battle.selected_units) do
-            tcs:log(k .. ":" .. v:type());
         end
     end
 
@@ -601,12 +474,30 @@ function battle_startup_test_scripts_here()
 
         local cases = {
             default = function() return end,
-            tcs_main_unit_active_fight = function() mapf_to_selected_units(unit_fight, tcs:get_config("fight_time") * 1000, "tcs_main_unit_active_fight") end,
-            tcs_main_unit_active_move = function() mapf_to_selected_units(unit_move, tcs:get_config("move_time") * 1000, "tcs_main_unit_active_move") end,
-            tcs_main_unit_active_shoot = function() mapf_to_selected_units(unit_shoot, tcs:get_config("shoot_time") * 1000, "tcs_main_unit_active_shoot") end,
-            tcs_main_unit_active_charge = function() mapf_to_selected_units(unit_charge, nil, "tcs_main_unit_active_charge") end,
-            tcs_main_unit_active_retreat = function() mapf_to_selected_units(unit_retreat, tcs:get_config("retreat_time") * 1000, "tcs_main_unit_active_retreat") end,
-            tcs_main_unit_active_run = function() mapf_to_selected_units(unit_run, tcs:get_config("move_time") * 1000, "tcs_main_unit_active_run") end,
+            tcs_main_unit_active_fight = function()
+                mapf_to_selected_units(unit_fight,
+                    tcs:get_config("fight_time") * 1000, "tcs_main_unit_active_fight")
+            end,
+            tcs_main_unit_active_move = function()
+                mapf_to_selected_units(unit_move, tcs:get_config("move_time") * 1000,
+                    "tcs_main_unit_active_move")
+            end,
+            tcs_main_unit_active_shoot = function()
+                mapf_to_selected_units(unit_shoot,
+                    tcs:get_config("shoot_time") * 1000, "tcs_main_unit_active_shoot")
+            end,
+            tcs_main_unit_active_charge = function()
+                mapf_to_selected_units(unit_charge, nil,
+                    "tcs_main_unit_active_charge")
+            end,
+            tcs_main_unit_active_retreat = function()
+                mapf_to_selected_units(unit_retreat,
+                    tcs:get_config("retreat_time") * 1000, "tcs_main_unit_active_retreat")
+            end,
+            tcs_main_unit_active_run = function()
+                mapf_to_selected_units(unit_run, tcs:get_config("move_time") * 1000,
+                    "tcs_main_unit_active_run")
+            end,
             tcs_army_ai_move = function()
                 mapf_to_ai_units(ai_unit_move, tcs:get_config("ai_move_time") * 1000);
             end,
@@ -614,7 +505,7 @@ function battle_startup_test_scripts_here()
                 mapf_to_ai_units(ai_unit_fight, tcs:get_config("ai_fight_time") * 1000);
             end,
             tcs_army_ai_shoot = function()
-            mapf_to_ai_units(ai_unit_shoot, tcs:get_config("ai_shoot_time") * 1000);
+                mapf_to_ai_units(ai_unit_shoot, tcs:get_config("ai_shoot_time") * 1000);
             end,
             tcs_army_ai_charge = function() mapf_to_ai_units(ai_unit_charge) end,
             tcs_army_ai_hero = function() mapf_to_ai_units(enable_non_passives, tcs:get_config("ai_hero_time") * 1000) end,
@@ -638,9 +529,16 @@ function battle_deployment_test_scripts_here()
     mapf_to_ai_units(disable_non_passives);
     fix_ai_shooting();
     mapf_to_all_units(disable_fire_at_will);
+    mapf_to_all_units(disable_morale)
 
-    if tcs.force_formed_attack then
-        mapf_to_ai_units(enable_formed_attack)
+    if bm:is_multiplayer() then
+        show_ai_controls(false)
+    end
+
+    if tcs:get_config("force_formed_attack") then
+        mapf_to_all_units(enable_formed_attack)
+    else
+        mapf_to_all_units(disable_formed_attack)
     end
 
     tcs_battle.active_player_alliance_index = bm:random_number(1, 2);

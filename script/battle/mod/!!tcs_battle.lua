@@ -6,6 +6,7 @@ local tcs_battle = {
     engagement_distance = 20,
     charge_range = 120,
     charge_dice_count = 4,
+
     ai_actively_shooting = {},
     ai_actively_moving = {},
     ai_actively_charging = {},
@@ -56,6 +57,14 @@ local tcs_battle = {
         "tcs_main_unit_active_retreat",
         "tcs_main_unit_active_run",
         "tcs_next_phase"
+    },
+
+    tcs_ai_controls = {
+        "tcs_army_ai_move",
+        "tcs_army_ai_fight",
+        "tcs_army_ai_shoot",
+        "tcs_army_ai_hero",
+        "tcs_army_ai_charge",
     }
 }
 

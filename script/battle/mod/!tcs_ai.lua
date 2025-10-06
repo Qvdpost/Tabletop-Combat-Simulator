@@ -118,7 +118,7 @@ function ai_unit_fight(unit, time)
         function()
             unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
         end,
-        time/2
+        tcs:get_config("pile_in_time") * 1000
     )
 
     scrunit:take_control()
@@ -247,11 +247,11 @@ function ai_stopcharge_unit(unit, target, overcharge_time, callback_name)
             overcharge_time
         )
         return
-    -- elseif not unit:is_moving() then
-    --     tcs:log("AI Unit (" .. unit:unique_ui_id() .. ") has stopped moving at destination (stuck in the air?).")
-    --     bm:remove_callback(callback_name)
-    --     ai_unit_end_charge(unit)
-    --     return
+    elseif not unit:is_moving_fast() then
+        tcs:log("AI Unit (" .. unit:unique_ui_id() .. ") has stopped moving at destination (stuck in the air?).")
+        bm:remove_callback(callback_name)
+        ai_unit_end_charge(unit)
+        return
     end
 
     scrunit:take_control()
@@ -293,7 +293,7 @@ function ai_unit_charge(unit)
         end
 
         local diceroll = roll_dice(tcs:get_config("default_charge_dice"), tcs:get_config("default_dice_eyes"))
-        local normalised_charge_distance = normalised_distance(charge_distance, tcs_battle.charge_range)
+        local normalised_charge_distance = normalise_to_range(charge_distance, tcs_battle.charge_range)
 
         if not (diceroll >= normalised_charge_distance) then
             tcs:log("Blocking charge; the roll failed: " .. diceroll .. " / " .. normalised_charge_distance)
@@ -318,12 +318,20 @@ function ai_unit_charge(unit)
 
         bm:callback(
             function()
+                scrunit.uc:attack_unit(ai_target.unit, true, true)
+            end,
+            500,
+            callback_name
+        )
+
+        bm:callback(
+            function()
                 bm:repeat_callback(function() ai_stopcharge_unit(unit, ai_target, overcharge_time, callback_name) end, 1000,
             callback_name)
             end,
-            2000
+            3000
         )
-        
+
     else
         tcs:log("AI has no target to attack.")
         ai_unit_end_charge(unit)

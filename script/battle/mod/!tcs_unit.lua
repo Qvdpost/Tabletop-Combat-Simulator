@@ -25,8 +25,8 @@ function freeze_unit_in_engagement_range(scrunit, callback_name)
     end
 end
 
-function warn_about_engagement_range(scrunit, callback_name)
-    if scrunit_is_engaged(scrunit, tcs.get_config("warn_about_engagement_range_distance")) then
+function warn_about_engagement_range(scrunit, buffer, callback_name)
+    if scrunit_is_engaged(scrunit, buffer) then
         bm:remove_callback(callback_name)
         scrunit.unit:highlight(true)
         local nearest_enemy_scrunit = nearest_enemy(scrunit, true)
@@ -55,6 +55,7 @@ function warn_about_engagement_range(scrunit, callback_name)
 end
 
 function unit_move(unit, time)
+    -- MoveToDraggableUnit CcoBattleUnit?? Perhaps interesting?? Ability that let's you place unit in a location. Reduce their movement range in status tracking.
     if tcs_battle.unit_actively_moving[unit:unique_ui_id()] then
         return
     end
@@ -77,10 +78,10 @@ function unit_move(unit, time)
     bm:repeat_callback(function() freeze_unit_in_engagement_range(scrunit, engage_callback_name) end, 500,
         engage_callback_name)
 
-    -- if tcs.get_config("warn_about_engagement_range") then
-    --     bm:repeat_callback(function() warn_about_engagement_range(scrunit, engage_callback_name) end, 500,
-    --     engage_callback_name)
-    -- end
+    if tcs:get_config("warn_about_engagement_range") then
+        bm:repeat_callback(function() warn_about_engagement_range(scrunit, tcs:get_config("warn_about_engagement_range_distance"), engage_callback_name) end, 500,
+        engage_callback_name)
+    end
 
     bm:callback(
         function()
@@ -147,6 +148,7 @@ function unit_fight(unit, time)
         tcs:log("Blocking attack; target is too far away")
         enable_unit_fight(unit)
         stopfight_unit(unit)
+        tcs_battle:set_unit_status(unit:unique_ui_id(), string.format("idle; combat target out of range (%d).", target_distance))
         return
     end
 
@@ -156,7 +158,7 @@ function unit_fight(unit, time)
         function()
             unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
         end,
-        time/2
+        tcs:get_config("pile_in_time") * 1000
     )
 
     local callback_name = "stopfight_" .. unit:unique_ui_id();
@@ -214,9 +216,11 @@ function unit_shoot(unit, time)
 
     local scrunit = bm:get_scriptunit_for_unit(unit);
     scrunit:set_melee_mode(false, true)
+
     tcs_battle.unit_actively_shooting[unit:unique_ui_id()] = true
     tcs_battle:set_unit_status(unit:unique_ui_id(), "shooting", time/1000)
     tcs:log("Unit(" .. unit:unique_ui_id() .. ") can shoot.");
+
     bm:callback(
         function()
             stopshoot_unit(unit)
@@ -283,15 +287,17 @@ function unit_charge(unit)
         tcs:log("Blocking charge; target is too far away")
         enable_unit_charge(unit)
         unit_end_charge(unit)
+        tcs_battle:set_unit_status(unit:unique_ui_id(), string.format("idle; charge target out of range (%d).", charge_distance))
         return
     end
 
     local diceroll = roll_dice(tcs:get_config("default_charge_dice"), tcs:get_config("default_dice_eyes"))
-    local normalised_charge_distance = normalised_distance(charge_distance, tcs_battle.charge_range)
+    local normalised_charge_distance = normalise_to_range(charge_distance, tcs_battle.charge_range)
 
     if not (diceroll >= normalised_charge_distance) then
         tcs:log("Blocking charge; the roll failed: " .. diceroll .. " / " .. normalised_charge_distance)
         unit_end_charge(unit)
+        tcs_battle:set_unit_status(unit:unique_ui_id(), string.format("idle; charge failed (%d/%.2f)", diceroll, normalised_charge_distance))
         return
     end
 
@@ -390,4 +396,25 @@ function unit_retreat(unit, time)
     tcs_battle.unit_retreated[unit:unique_ui_id()] = true
     tcs_battle:set_unit_status(unit:unique_ui_id(), "retreating")
     tcs:log("Unit(" .. unit:unique_ui_id() .. ") is retreating.")
+end
+
+function unit_break(unit, time)
+    local unit_cco = tcs_get_battleunit_cco(unit:unique_ui_id())
+    tcs:log("Break testing Unit(" .. unit:unique_ui_id() .. ") with morale: " .. unit_cco:Call("MoralePercent"))
+
+    if unit_cco:Call("MoralePercent") < (tcs:get_config("unit_break_point") / 100) then
+        local unit_details_cco = unit_cco:Call("UnitDetailsContext")
+        local unit_base_leadership = unit_details_cco:Call("BaseStatValueFromKey('stat_morale')")
+
+        local diceroll = roll_dice(tcs:get_config("break_test_dice"), tcs:get_config("default_dice_eyes"))
+
+        local breakpoint = normalise_to_range(unit_base_leadership, 100, tcs:get_config("break_test_dice"), tcs:get_config("default_dice_eyes"))
+
+        tcs:log("Unit(" .. unit:unique_ui_id() .. ") rolled for breaking: " .. diceroll .. "/" .. breakpoint)
+
+        if diceroll > breakpoint then
+            tcs:log("Unit(" .. unit:unique_ui_id() .. ") broke")
+            unit_retreat(unit, time)
+        end
+    end
 end

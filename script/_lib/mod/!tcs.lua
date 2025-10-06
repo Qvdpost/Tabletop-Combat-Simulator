@@ -1,7 +1,7 @@
 local tcs = {
     config = {
         logging_enabled = false,
-        move_time = 30,
+        move_time = 20,
         fight_time = 20,
         shoot_time = 10,
         retreat_time = 10,
@@ -14,7 +14,11 @@ local tcs = {
         warn_about_engagement_range_distance = 15,
         default_charge_dice = 2,
         default_dice_eyes = 6,
-        default_run_dice = 1
+        default_run_dice = 1,
+        pile_in_time = 3,
+        break_test_dice = 2,
+        unit_break_duration = 25,
+        unit_break_point = 35
     }
 };
 
