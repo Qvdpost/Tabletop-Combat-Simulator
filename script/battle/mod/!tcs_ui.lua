@@ -162,12 +162,14 @@ function set_active_crest()
     active_player_crest:SetImagePath(active_player_flag)
 
     local active_player_title = find_uicomponent(phase_control_panel, "player_pane", "player_title")
-
+    local title_text = ""
     if tcs_battle.active_player_alliance_index == bm:local_alliance() then
-        active_player_title:SetStateText("Your Turn")
+        title_text = "Your Turn"
     else
-        active_player_title:SetStateText("Their Turn")
+        title_text = "Their Turn"
     end
+    active_player_title:SetStateText(title_text)
+    active_player_title:Resize(active_player_title:WidthOfTextLine(title_text) + 10, active_player_title:Height(), true)
 end
 
 function battleshock_tickdown(seconds)
@@ -177,6 +179,7 @@ function battleshock_tickdown(seconds)
     local player_title = find_uicomponent(bop_holder, "phase_control_panel", "player_pane", "player_title")
 
     player_title:SetStateText("Battleshock: " .. seconds)
+    player_title:Resize(player_title:WidthOfTextLine("Battleshock: " .. seconds) + 10, player_title:Height(), true)
 
     if seconds == 0 then
         return

@@ -154,12 +154,12 @@ core:add_listener(
 
 
                             bm:callback(
-                            function()
-                                core:trigger_custom_event("tcs_next_phase", {})
-                            end,
-                            math.max(battleshock_delay, ai_hero_time),
-                            "tcs_ai_hero_phase"
-                        )
+                                function()
+                                    core:trigger_custom_event("tcs_next_phase", {})
+                                end,
+                                math.max(battleshock_delay, ai_hero_time),
+                                "tcs_ai_hero_phase"
+                            )
                         end
                     end,
                     500

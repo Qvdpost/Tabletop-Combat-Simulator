@@ -59,7 +59,7 @@ local tcs_battle = {
         "tcs_next_phase"
     },
 
-    tcs_ai_controls = {
+    army_ai_controls = {
         "tcs_army_ai_move",
         "tcs_army_ai_fight",
         "tcs_army_ai_shoot",

@@ -398,6 +398,17 @@ function unit_retreat(unit, time)
     tcs:log("Unit(" .. unit:unique_ui_id() .. ") is retreating.")
 end
 
+function unit_crumble(unit, time)
+    local scrunit = bm:get_scriptunit_for_unit(unit)
+    scrunit:morale_behavior_rout()
+    bm:callback(
+        function()
+            scrunit:morale_behavior_default()
+        end,
+        time
+    )
+end
+
 function unit_break(unit, time)
     local unit_cco = tcs_get_battleunit_cco(unit:unique_ui_id())
     tcs:log("Break testing Unit(" .. unit:unique_ui_id() .. ") with morale: " .. unit_cco:Call("MoralePercent"))
@@ -414,7 +425,11 @@ function unit_break(unit, time)
 
         if diceroll > breakpoint then
             tcs:log("Unit(" .. unit:unique_ui_id() .. ") broke")
-            unit_retreat(unit, time)
+            if unit_cco:Call("IsUndead") then
+                unit_crumble(unit, time)
+            else
+                unit_retreat(unit, time)
+            end
         end
     end
 end
