@@ -1,6 +1,31 @@
 local tcs = core:get_static_object("tcs");
 local tcs_battle = core:get_static_object("tcs_battle");
 
+function reselect_units()
+    bm:clear_selection()
+    -- local unit_cco = cco("CcoBattleSelection", 1):Call("FirstUnitContext")
+    -- if not unit_cco then
+    --     return
+    -- end
+
+    -- local scrunit = get_sunit_by_id(unit_cco:Call("UniqueUiId"))
+
+    -- for _, ability in pairs(tcs_battle.unit_activations) do
+    --     local ability_cco = get_ability_button_cco(ability)
+    --     tcs:log("Unit can perform " .. ability .. ": " .. tostring(scrunit.unit:can_perform_special_ability(ability)))
+    --     if ability_cco and scrunit.unit:can_perform_special_ability(ability) then
+    --         ability_cco:SetVisible(true)
+    --     end
+    -- end
+end
+
+function zoom_to(unique_ui_id)
+    local unit_cco = tcs_get_battleunit_cco(unique_ui_id)
+    if unit_cco then
+        unit_cco:Call("ZoomTo")
+    end
+end
+
 function create_unit_status()
     local parent = core:get_ui_root()
     local info_panel = find_uicomponent(parent, "hud_battle", "info_panel_parent")
@@ -42,9 +67,10 @@ function create_unit_status()
     end
 
     unit_status_component:SetCanResizeWidth(true)
-    -- local text_width, text_height = unit_status_component:TextDimensionsForText(some_text)
-    -- unit_status_component:Resize(text_width + 10, text_height)
+
     unit_status_component:SetStateText(some_text)
+
+    return unit_status_component
 end
 
 function decrease_unit_status_time(unit_uid)
@@ -160,16 +186,6 @@ function set_active_crest()
     local active_player_crest = find_uicomponent(phase_control_panel, "player_pane", "player_holder", "player_crest")
     local active_player_flag = remake_flag_path(active_player_alliance():armies():item(1):flag_path())
     active_player_crest:SetImagePath(active_player_flag)
-
-    local active_player_title = find_uicomponent(phase_control_panel, "player_pane", "player_title")
-    local title_text = ""
-    if tcs_battle.active_player_alliance_index == bm:local_alliance() then
-        title_text = "Your Turn"
-    else
-        title_text = "Their Turn"
-    end
-    active_player_title:SetStateText(title_text)
-    active_player_title:Resize(active_player_title:WidthOfTextLine(title_text) + 10, active_player_title:Height(), true)
 end
 
 function battleshock_tickdown(seconds)
@@ -177,9 +193,11 @@ function battleshock_tickdown(seconds)
     local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
 
     local player_title = find_uicomponent(bop_holder, "phase_control_panel", "player_pane", "player_title")
+    
+    local title_text = "Battleshock: " .. seconds
 
-    player_title:SetStateText("Battleshock: " .. seconds)
-    player_title:Resize(player_title:WidthOfTextLine("Battleshock: " .. seconds) + 10, player_title:Height(), true)
+    player_title:SetStateText(title_text)
+    player_title:Resize(player_title:WidthOfTextLine(title_text) + 10, player_title:Height(), true)
 
     if seconds == 0 then
         return
@@ -196,10 +214,60 @@ function show_ai_controls(bool)
     local parent = core:get_ui_root()
     local army_ability_parent = find_uicomponent(parent, "hud_battle", "army_ability_container", "army_ability_parent")
 
-    for army_ability, _ in pairs(tcs_battle.army_ai_controls) do
+    for _, army_ability in pairs(tcs_battle.army_ai_controls) do
         local army_ability_component = find_uicomponent(army_ability_parent, "button_holder_" .. army_ability)
         if army_ability_component then
             army_ability_component:SetVisible(bool)
         end
     end
+end
+
+function flash_title_message(message)
+    bm:remove_callback("tcs_flash_message")
+    local parent = core:get_ui_root()
+    local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
+
+    local player_title = find_uicomponent(bop_holder, "phase_control_panel", "player_pane", "player_title")
+
+    local title_text = player_title:GetStateText()
+
+    player_title:SetStateText(message)
+    player_title:Resize(player_title:WidthOfTextLine(message) + 10, player_title:Height(), true)
+
+    bm:callback(
+        function()
+            player_title:SetStateText(title_text)
+            player_title:Resize(player_title:WidthOfTextLine(title_text) + 10, player_title:Height(), true)
+        end,
+        3000,
+        "tcs_flash_message"
+    )
+end
+
+function set_title_message(message)
+    bm:remove_callback("tcs_flash_message")
+    local parent = core:get_ui_root()
+    local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
+
+    local player_title = find_uicomponent(bop_holder, "phase_control_panel", "player_pane", "player_title")
+
+    player_title:SetStateText(message)
+    player_title:Resize(player_title:WidthOfTextLine(message) + 10, player_title:Height(), true)
+end
+
+function get_ability_button_cco(ability_key)
+    local root = core:get_ui_root()
+    local unit_ability_holder = find_uicomponent(root, "hud_battle", "porthole_parent", "ability_parent")
+    for i = 1, unit_ability_holder:ChildCount() do
+        local ability = nil
+        if i == 1 then
+            ability = find_uicomponent(unit_ability_holder, "button_slot" .. i, "button_ability")
+        else
+            ability = find_uicomponent(unit_ability_holder, "button_slot" .. i, "button_ability" .. i)
+        end
+        if ability and ability:GetContextObject("CcoUnitAbilityDetails") and ability:GetContextObject("CcoUnitAbilityDetails"):Call("Key") == ability_key then
+            return find_uicomponent(unit_ability_holder, "button_slot" .. i)
+        end
+    end
+    return nil
 end

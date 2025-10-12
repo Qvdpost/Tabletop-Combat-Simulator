@@ -12,7 +12,6 @@ local tcs_battle = {
     ai_actively_charging = {},
     ai_actively_fighting = {},
     ai_actively_retreating = {},
-    ai_army_alliance = {},
 
     unit_actively_moving = {},
     unit_actively_fighting = {},
@@ -20,6 +19,9 @@ local tcs_battle = {
     unit_actively_charging = {},
     unit_actively_retreating = {},
 
+    unit_should_land = {},
+
+    active_units = {},
     unit_ran = {},
     unit_retreated = {},
 
@@ -59,12 +61,34 @@ local tcs_battle = {
         "tcs_next_phase"
     },
 
+    unit_callback_names = {
+        stopmove = "freeze_unit_",
+        engage_check = "engagement_unit_",
+        engage_warn = "engagement_warning_unit",
+        stopfight = "stopfight_",
+        stopshoot = "stopshoot_",
+        stopcharge = "stopcharge_",
+        stopretreat = "stopretreat_",
+        landunit = "landunit_"
+    },
+
     army_ai_controls = {
         "tcs_army_ai_move",
         "tcs_army_ai_fight",
         "tcs_army_ai_shoot",
         "tcs_army_ai_hero",
         "tcs_army_ai_charge",
+    },
+
+    unit_passives = {
+        "tcs_main_unit_passive_inactive_fighting",
+        "tcs_main_unit_passive_inactive_shooting",
+        "tcs_main_unit_passive_stationary",
+    },
+
+    tcs_real_callback_names = {
+        unit_status = "tcs_unit_status",
+        unit_dies = "tcs_unit_dies"
     }
 }
 

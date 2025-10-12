@@ -9,6 +9,12 @@ core:add_listener(
         return context.string == "next_phase_button"
     end,
     function(context)
+        local active_unit, status = any_unit_still_active()
+        if active_unit then
+            flash_title_message("A unit is still " .. status)
+            zoom_to(active_unit)
+            return
+        end
         stop_highlight_next_phase_button()
         perform_next_phase()
         return true
@@ -23,6 +29,12 @@ core:add_listener(
         return context.string == "button_move_phase"
     end,
     function(context)
+        local active_unit, status = any_unit_still_active()
+        if active_unit then
+            flash_title_message("A unit is still " .. status)
+            zoom_to(active_unit)
+            return
+        end
         perform_next_phase()
         return true
     end,
@@ -36,6 +48,12 @@ core:add_listener(
         return context.string == "button_shoot_phase"
     end,
     function(context)
+        local active_unit, status = any_unit_still_active()
+        if active_unit then
+            flash_title_message("A unit is still " .. status)
+            zoom_to(active_unit)
+            return
+        end
         perform_next_phase()
         return true
     end,
@@ -49,6 +67,12 @@ core:add_listener(
         return context.string == "button_charge_phase"
     end,
     function(context)
+        local active_unit, status = any_unit_still_active()
+        if active_unit then
+            flash_title_message("A unit is still " .. status)
+            zoom_to(active_unit)
+            return
+        end
         perform_next_phase()
         return true
     end,
@@ -62,6 +86,12 @@ core:add_listener(
         return context.string == "button_fight_phase"
     end,
     function(context)
+        local active_unit, status = any_unit_still_active()
+        if active_unit then
+            flash_title_message("A unit is still " .. status)
+            zoom_to(active_unit)
+            return
+        end
         perform_next_phase()
         return true
     end,
@@ -112,7 +142,7 @@ core:add_listener(
     "button_hero_phase",
     true,
     function(context)
-        tcs:log("Hero Phase started: ")
+        tcs:log("Hero Phase started: ", __FILE__(), __LINE__(), __FUNC__())
 
         enable_next_phase_button(false)
         mapf_to_all_units(disable_unit_activations)
@@ -131,9 +161,9 @@ core:add_listener(
 
                 bm:callback(
                     function()
-                        mapf_to_active_player_units(disable_morale)
-
                         set_active_crest()
+
+                        set_title_message("Hero Phase")
 
                         local battleshock_delay = 500
                         if next(tcs_battle.unit_retreated) then
@@ -154,12 +184,12 @@ core:add_listener(
 
 
                             bm:callback(
-                                function()
-                                    core:trigger_custom_event("tcs_next_phase", {})
-                                end,
-                                math.max(battleshock_delay, ai_hero_time),
-                                "tcs_ai_hero_phase"
-                            )
+                            function()
+                                core:trigger_custom_event("tcs_next_phase", {})
+                            end,
+                            math.max(battleshock_delay, ai_hero_time),
+                            "tcs_ai_hero_phase"
+                        )
                         end
                     end,
                     500
@@ -176,10 +206,11 @@ core:add_listener(
     "button_move_phase",
     true,
     function(context)
-        tcs:log("Move Phase started: ")
+        tcs:log("Move Phase started: ", __FILE__(), __LINE__(), __FUNC__())
 
         set_active_phase("button_move_phase")
 
+        set_title_message("Move Phase")
 
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_move, tcs:get_config("ai_move_time") * 1000);
@@ -192,11 +223,11 @@ core:add_listener(
 
             bm:repeat_callback(
                 function()
-                    if next(tcs_battle.ai_actively_moving) == nil then
+                    if not next(tcs_battle.ai_actively_moving) then
                         bm:remove_callback(callback_name);
                         core:trigger_custom_event("tcs_next_phase", {});
                     else
-                        tcs:log("AI units still moving.")
+                        tcs:log("AI units still moving.", __FILE__(), __LINE__(), __FUNC__())
                     end
                 end,
                 2000,
@@ -218,9 +249,11 @@ core:add_listener(
     "button_shoot_phase",
     true,
     function(context)
-        tcs:log("Shooting Phase started: ")
+        tcs:log("Shooting Phase started: ", __FILE__(), __LINE__(), __FUNC__())
 
         set_active_phase("button_shoot_phase")
+
+        set_title_message("Shoot Phase")
 
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_shoot, tcs:get_config("ai_shoot_time") * 1000);
@@ -235,7 +268,7 @@ core:add_listener(
                         bm:remove_callback(callback_name)
                         core:trigger_custom_event("tcs_next_phase", {})
                     else
-                        tcs:log("AI units still shooting.")
+                        tcs:log("AI units still shooting.", __FILE__(), __LINE__(), __FUNC__())
                     end
                 end,
                 2000,
@@ -255,9 +288,11 @@ core:add_listener(
     "button_charge_phase",
     true,
     function(context)
-        tcs:log("Charge Phase started: ")
+        tcs:log("Charge Phase started: ", __FILE__(), __LINE__(), __FUNC__())
 
         set_active_phase("button_charge_phase")
+
+        set_title_message("Charge Phase")
 
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_charge)
@@ -272,7 +307,7 @@ core:add_listener(
                         bm:remove_callback(callback_name);
                         core:trigger_custom_event("tcs_next_phase", {});
                     else
-                        tcs:log("AI units still charging.")
+                        tcs:log("AI units still charging.", __FILE__(), __LINE__(), __FUNC__())
                     end
                 end,
                 2000,
@@ -292,9 +327,11 @@ core:add_listener(
     "button_fight_phase",
     true,
     function(context)
-        tcs:log("Combat Phase started: ")
+        tcs:log("Combat Phase started: ", __FILE__(), __LINE__(), __FUNC__())
 
         set_active_phase("button_fight_phase")
+
+        set_title_message("Fight Phase")
 
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_fight, tcs:get_config("ai_fight_time") * 1000);
@@ -310,7 +347,7 @@ core:add_listener(
                     enable_next_phase_button(true)
                     highlight_next_phase_button(3)
                 else
-                    tcs:log("AI units still fighting.")
+                    tcs:log("AI units still fighting.", __FILE__(), __LINE__(), __FUNC__())
                 end
             end
 
@@ -344,7 +381,7 @@ core:add_listener(
         tcs_battle.last_targeted_enemy_sunit = enemy_sunits:get_sunit_by_name(tostring(battle_root:Call(
             "CursorContextContext.UnitContext.UniqueUiId")));
 
-        tcs:log("New last target: " .. tcs_battle.last_targeted_enemy_sunit.unit:unique_ui_id())
+        tcs:log("New last target: " .. tcs_battle.last_targeted_enemy_sunit.unit:unique_ui_id(), __FILE__(), __LINE__(), __FUNC__())
     end,
     true
 )

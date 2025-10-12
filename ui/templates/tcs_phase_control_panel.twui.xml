@@ -108,7 +108,7 @@
 					this="161C1E23-66DD-8137-D8AD5F45DC720CE6"
 					name="NewState"
 					width="50"
-					height="14"
+					height="20"
 					uniqueguid="161C1E23-66DD-8137-D8AD5F45DC720CE6">
 					<imagemetrics>
 						<image
@@ -116,7 +116,7 @@
 							uniqueguid="9ACC09C9-63FE-5F85-039B8E1A9ED45176"
 							componentimage="1145C1F0-FCCD-A64E-18A86055DF74C92A"
 							width="60"
-							height="14"
+							height="20"
 							tile="true"
 							canresizeheight="false"
 							dockpoint="Center"

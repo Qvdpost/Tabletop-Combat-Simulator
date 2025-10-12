@@ -1,0 +1,18 @@
+key	persistant	show_instant	show_on_navigate	is_header	navigation_order
+#advice_info_texts_tables;3;db/advice_info_texts_tables/tcs_					
+tcs.battle.advice.tcs_guide.info_001	false	false	true	true	0
+tcs.battle.advice.tcs_guide.info_002	false	false	true	false	1
+tcs.battle.advice.tcs_guide.info_003	false	false	true	false	2
+tcs.battle.advice.tcs_guide.info_004	false	false	true	false	3
+tcs.battle.advice.controls.info_001	false	false	true	true	0
+tcs.battle.advice.controls.info_002	false	false	true	false	1
+tcs.battle.advice.controls.info_003	false	false	true	false	2
+tcs.battle.advice.controls.info_004	false	false	true	false	3
+tcs.battle.advice.activations.info_001	false	false	true	true	0
+tcs.battle.advice.activations.info_002	false	false	true	false	1
+tcs.battle.advice.activations.info_003	false	false	true	false	2
+tcs.battle.advice.activations.info_004	false	false	true	false	3
+tcs.battle.advice.unit_info.info_001	false	false	true	true	0
+tcs.battle.advice.unit_info.info_002	false	false	true	false	1
+tcs.battle.advice.unit_info.info_003	false	false	true	false	2
+tcs.battle.advice.unit_info.info_004	false	false	true	false	3

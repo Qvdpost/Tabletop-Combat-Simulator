@@ -4,24 +4,28 @@ local tcs_battle = core:get_static_object("tcs_battle");
 
 function freeze_unit(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    local callback_name = "freeze_unit_" .. unit:unique_ui_id();
 
-    bm:remove_callback(callback_name);
+    bm:remove_callback(tcs_battle.unit_callback_names["stopmove"] .. unit:unique_ui_id());
+    bm:remove_callback(tcs_battle.unit_callback_names["engage_check"] .. unit:unique_ui_id())
+    bm:remove_callback(tcs_battle.unit_callback_names["engage_warn"] .. unit:unique_ui_id())
 
     unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
-    disable_melee_attacks(unit)
-    scrunit:halt()
 
-    tcs_battle.unit_actively_moving[unit:unique_ui_id()] = false
+    disable_melee_attacks(unit)
+
+    stop_scrunit(scrunit)
+
+    tcs_battle.unit_actively_moving[unit:unique_ui_id()] = nil
     tcs_battle:clear_unit_status(unit:unique_ui_id())
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can no longer move.");
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can no longer move.", __FILE__(), __LINE__(), __FUNC__());
 end;
 
 function freeze_unit_in_engagement_range(scrunit, callback_name)
     if scrunit_is_engaged(scrunit, 5) then
         bm:remove_callback(callback_name)
         freeze_unit(scrunit.unit)
-        tcs:log("Unit(" .. scrunit.unit:unique_ui_id() .. ") entered engagement range.");
+        tcs:log("Unit(" .. scrunit.unit:unique_ui_id() .. ") entered engagement range.", __FILE__(), __LINE__(),
+            __FUNC__());
     end
 end
 
@@ -50,7 +54,8 @@ function warn_about_engagement_range(scrunit, buffer, callback_name)
             3000
         )
         tcs_get_battleunit_cco(scrunit.unit:unique_ui_id()):Call("ZoomTo")
-        tcs:log("Unit(" .. scrunit.unit:unique_ui_id() .. ") nearing engagement range.");
+        tcs:log("Unit(" .. scrunit.unit:unique_ui_id() .. ") nearing engagement range.", __FILE__(), __LINE__(),
+            __FUNC__());
     end
 end
 
@@ -60,33 +65,37 @@ function unit_move(unit, time)
         return
     end
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    local callback_name = "freeze_unit_" .. unit:unique_ui_id();
-    local engage_callback_name = "engagement_unit_" .. unit:unique_ui_id()
+    local callback_name = tcs_battle.unit_callback_names["stopmove"] .. unit:unique_ui_id()
+    local engage_callback_name = tcs_battle.unit_callback_names["engage_check"] .. unit:unique_ui_id()
 
     bm:remove_callback(callback_name);
+    bm:remove_callback(engage_callback_name)
 
     unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
     tcs_battle.unit_actively_moving[unit:unique_ui_id()] = true
 
     unit:disable_special_ability("tcs_main_unit_active_run", true)
 
-    unit:disable_special_ability("tcs_main_unit_passive_run", true)
-
-    tcs_battle:set_unit_status(unit:unique_ui_id(), "moving", time/1000)
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can move.");
+    tcs_battle:set_unit_status(unit:unique_ui_id(), "moving", time / 1000)
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can move.", __FILE__(), __LINE__(), __FUNC__());
 
     bm:repeat_callback(function() freeze_unit_in_engagement_range(scrunit, engage_callback_name) end, 500,
         engage_callback_name)
 
     if tcs:get_config("warn_about_engagement_range") then
-        bm:repeat_callback(function() warn_about_engagement_range(scrunit, tcs:get_config("warn_about_engagement_range_distance"), engage_callback_name) end, 500,
-        engage_callback_name)
+        local engage_warning_callback_name = tcs_battle.unit_callback_names["engage_warn"] .. unit:unique_ui_id()
+        bm:repeat_callback(
+            function()
+                warn_about_engagement_range(scrunit, tcs:get_config("warn_about_engagement_range_distance"),
+                    engage_warning_callback_name)
+            end,
+            500,
+            engage_warning_callback_name
+        )
     end
 
     bm:callback(
         function()
-            bm:remove_callback(engage_callback_name)
-            bm:remove_callback(callback_name)
             freeze_unit(unit)
         end,
         time,
@@ -108,26 +117,23 @@ function unit_run(unit, time)
     unit:disable_special_ability("tcs_main_unit_active_move", true)
 
     tcs_battle.unit_ran[unit:unique_ui_id()] = true
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") running for " .. (extra_time / 1000) .. " extra seconds.");
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") running for " .. (extra_time / 1000) .. " extra seconds.", __FILE__(),
+        __LINE__(), __FUNC__());
 end
 
 function stopfight_unit(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    local callback_name = "stopfight_" .. unit:unique_ui_id();
 
-    bm:remove_callback(callback_name);
+    bm:remove_callback(tcs_battle.unit_callback_names["stopfight"] .. unit:unique_ui_id());
 
     unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", false)
     disable_melee_attacks(unit)
 
-    scrunit:take_control()
-    scrunit:halt()
-    scrunit:taunt()
-    scrunit:release_control()
+    stop_scrunit(scrunit)
 
-    tcs_battle.unit_actively_fighting[unit:unique_ui_id()] = false
+    tcs_battle.unit_actively_fighting[unit:unique_ui_id()] = nil
     tcs_battle:clear_unit_status(unit:unique_ui_id())
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can no longer fight.");
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can no longer fight.", __FILE__(), __LINE__(), __FUNC__());
 end;
 
 function unit_fight(unit, time)
@@ -141,14 +147,15 @@ function unit_fight(unit, time)
     local attack_target = tcs_battle.last_targeted_enemy_sunit.unit
 
     local target_distance = unit:unit_distance(attack_target)
-    tcs:log("Target distance: " .. target_distance)
+    tcs:log("Target distance: " .. target_distance, __FILE__(), __LINE__(), __FUNC__())
 
 
     if target_distance > tcs_battle.engagement_distance then
-        tcs:log("Blocking attack; target is too far away")
+        tcs:log("Blocking attack; target is too far away", __FILE__(), __LINE__(), __FUNC__())
         enable_unit_fight(unit)
         stopfight_unit(unit)
-        tcs_battle:set_unit_status(unit:unique_ui_id(), string.format("idle; combat target out of range (%d).", target_distance))
+        tcs_battle:set_unit_status(unit:unique_ui_id(),
+            string.format("idle; combat target out of range (%d).", target_distance))
         return
     end
 
@@ -161,14 +168,14 @@ function unit_fight(unit, time)
         tcs:get_config("pile_in_time") * 1000
     )
 
-    local callback_name = "stopfight_" .. unit:unique_ui_id();
+    local callback_name = tcs_battle.unit_callback_names["stopfight"] .. unit:unique_ui_id()
 
     bm:remove_callback(callback_name);
 
     unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", true)
     tcs_battle.unit_actively_fighting[unit:unique_ui_id()] = true
-    tcs_battle:set_unit_status(unit:unique_ui_id(), "fighting", time/1000)
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can fight.");
+    tcs_battle:set_unit_status(unit:unique_ui_id(), "fighting", time / 1000)
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can fight.", __FILE__(), __LINE__(), __FUNC__());
 
     bm:callback(
         function()
@@ -182,11 +189,14 @@ function unit_fight(unit, time)
     bm:repeat_callback(
         function()
             if not scrunit:is_in_melee() then
+                tcs:log("Unit(" .. unit:unique_ui_id() .. ") not in melee; attacking again.", __FILE__(), __LINE__(),
+                    __FUNC__());
                 scrunit.uc:attack_unit(attack_target)
             end
         end,
         2000,
-        callback_name)
+        callback_name
+    )
 
     bm:repeat_callback(function() decrease_unit_status_time(unit:unique_ui_id()) end, 1000, callback_name)
 end
@@ -194,22 +204,23 @@ end
 function stopshoot_unit(unit)
     local battle_unit_cco = tcs_get_battleunit_cco(unit:unique_ui_id())
 
-    local callback_name = "stopshoot_" .. unit:unique_ui_id();
-    bm:remove_callback(callback_name);
+    bm:remove_callback(tcs_battle.unit_callback_names["stopshoot"] .. unit:unique_ui_id());
 
     local scrunit = bm:get_scriptunit_for_unit(unit);
     unit:disable_special_ability("tcs_main_unit_passive_inactive_shooting", false)
-    scrunit:halt();
-    tcs_battle.unit_actively_shooting[unit:unique_ui_id()] = false
+
+    stop_scrunit(scrunit)
+
+    tcs_battle.unit_actively_shooting[unit:unique_ui_id()] = nil
     tcs_battle:clear_unit_status(unit:unique_ui_id())
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can no longer shoot.");
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can no longer shoot.", __FILE__(), __LINE__(), __FUNC__());
 end;
 
 function unit_shoot(unit, time)
     if tcs_battle.unit_actively_shooting[unit:unique_ui_id()] then
         return
     end
-    local callback_name = "stopshoot_" .. unit:unique_ui_id();
+    local callback_name = tcs_battle.unit_callback_names["stopshoot"] .. unit:unique_ui_id()
     bm:remove_callback(callback_name);
 
     unit:disable_special_ability("tcs_main_unit_passive_inactive_shooting", true)
@@ -218,8 +229,8 @@ function unit_shoot(unit, time)
     scrunit:set_melee_mode(false, true)
 
     tcs_battle.unit_actively_shooting[unit:unique_ui_id()] = true
-    tcs_battle:set_unit_status(unit:unique_ui_id(), "shooting", time/1000)
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can shoot.");
+    tcs_battle:set_unit_status(unit:unique_ui_id(), "shooting", time / 1000)
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can shoot.", __FILE__(), __LINE__(), __FUNC__());
 
     bm:callback(
         function()
@@ -232,26 +243,48 @@ function unit_shoot(unit, time)
 end
 
 function unit_end_charge(unit)
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") ending charge.", __FILE__(), __LINE__(), __FUNC__());
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    disable_melee_attacks(unit)
-    unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
-    scrunit:halt();
-    scrunit:taunt();
-    scrunit:release_control()
 
-    tcs_battle.unit_actively_charging[unit:unique_ui_id()] = false
+    disable_melee_attacks(unit)
+
+    stop_scrunit(scrunit)
+
+    unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
+    unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", false)
+
+    if tcs_battle.unit_should_land[unit:unique_ui_id()] then
+        bm:repeat_callback(
+            function()
+                land_unit(unit)
+            end,
+            1000,
+            tcs_battle.unit_callback_names["landunit"] .. unit:unique_ui_id()
+        )
+    end
+
+    tcs_battle.unit_actively_charging[unit:unique_ui_id()] = nil
     tcs_battle:clear_unit_status(unit:unique_ui_id())
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") stopped charging.");
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") ended charging.", __FILE__(), __LINE__(), __FUNC__());
 end
 
 function stopcharge_unit(unit, charge_target, overcharge_time, callback_name)
     local scrunit = bm:get_scriptunit_for_unit(unit);
+
     if unit:is_in_melee() then
-        tcs:log("Unit (" .. unit:unique_ui_id() .. ") in melee.")
+        tcs:log("Unit (" .. unit:unique_ui_id() .. ") in melee.", __FILE__(), __LINE__(), __FUNC__())
+        tcs:log(
+            string.format(
+                "Unit (" .. unit:unique_ui_id() .. ") overcharging for %.2f seconds.", overcharge_time / 1000
+            ), __FILE__(), __LINE__(), __FUNC__()
+        )
+
         bm:remove_callback(callback_name)
+
         bm:callback(
             function()
                 unit_end_charge(unit)
+                stop_unit(charge_target)
             end,
             overcharge_time
         )
@@ -259,7 +292,7 @@ function stopcharge_unit(unit, charge_target, overcharge_time, callback_name)
     end
 
     scrunit.uc:attack_unit(charge_target, true, true)
-    tcs:log("Unit (" .. unit:unique_ui_id() .. ") not yet in melee.")
+    tcs:log("Unit (" .. unit:unique_ui_id() .. ") not yet in melee.", __FILE__(), __LINE__(), __FUNC__())
 end
 
 function unit_charge(unit)
@@ -267,12 +300,12 @@ function unit_charge(unit)
         return
     end
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    scrunit:halt();
+    stop_scrunit(scrunit)
     enable_melee_attacks(unit)
     scrunit:set_melee_mode(true, true)
 
     if not tcs_battle.last_targeted_enemy_sunit then
-        tcs:log("Blocking charge; target is not an enemy")
+        tcs:log("Blocking charge; target is not an enemy", __FILE__(), __LINE__(), __FUNC__())
         enable_unit_charge(unit)
         unit_end_charge(unit)
         return
@@ -281,13 +314,14 @@ function unit_charge(unit)
     local charge_target = tcs_battle.last_targeted_enemy_sunit.unit
 
     local charge_distance = unit:unit_distance(charge_target)
-    tcs:log("Charge distance: " .. charge_distance)
+    tcs:log("Charge distance: " .. charge_distance, __FILE__(), __LINE__(), __FUNC__())
 
     if charge_distance > tcs_battle.charge_range then
-        tcs:log("Blocking charge; target is too far away")
+        tcs:log("Blocking charge; target is too far away", __FILE__(), __LINE__(), __FUNC__())
         enable_unit_charge(unit)
         unit_end_charge(unit)
-        tcs_battle:set_unit_status(unit:unique_ui_id(), string.format("idle; charge target out of range (%d).", charge_distance))
+        tcs_battle:set_unit_status(unit:unique_ui_id(),
+            string.format("idle; charge target out of range (%d).", charge_distance))
         return
     end
 
@@ -295,15 +329,22 @@ function unit_charge(unit)
     local normalised_charge_distance = normalise_to_range(charge_distance, tcs_battle.charge_range)
 
     if not (diceroll >= normalised_charge_distance) then
-        tcs:log("Blocking charge; the roll failed: " .. diceroll .. " / " .. normalised_charge_distance)
+        tcs:log("Blocking charge; the roll failed: " .. diceroll .. " / " .. normalised_charge_distance, __FILE__(),
+            __LINE__(), __FUNC__())
         unit_end_charge(unit)
-        tcs_battle:set_unit_status(unit:unique_ui_id(), string.format("idle; charge failed (%d/%.2f)", diceroll, normalised_charge_distance))
+        tcs_battle:set_unit_status(unit:unique_ui_id(),
+            string.format("idle; charge failed (%d/%.2f)", diceroll, normalised_charge_distance))
         return
     end
 
-    local overcharge_time = ((diceroll - normalised_charge_distance) / (tcs:get_config("default_charge_dice") * tcs:get_config("default_dice_eyes"))) * tcs:get_config("move_time") * 1000;
+    local overcharge_time = ((diceroll - normalised_charge_distance) / (tcs:get_config("default_charge_dice") * tcs:get_config("default_dice_eyes"))) *
+        tcs:get_config("move_time") * 1000;
 
-    local callback_name = "stopcharge_" .. unit:unique_ui_id();
+    if unit:is_currently_flying() and not charge_target:is_currently_flying() and not unit:has_attribute("always_flying") then
+        tcs_battle.unit_should_land[unit:unique_ui_id()] = true
+    end
+
+    local callback_name = tcs_battle.unit_callback_names["stopcharge"] .. unit:unique_ui_id()
 
     bm:remove_callback(callback_name);
 
@@ -311,13 +352,20 @@ function unit_charge(unit)
     scrunit:take_control()
 
     unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
+    unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", true)
 
     tcs_battle.unit_actively_charging[unit:unique_ui_id()] = true
-    tcs_battle:set_unit_status(unit:unique_ui_id(), "charging")
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") charging now.");
+    tcs_battle:set_unit_status(unit:unique_ui_id(),
+        string.format("charging (%d/%.2f)", diceroll, normalised_charge_distance))
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") charging now.", __FILE__(), __LINE__(), __FUNC__());
 
-    bm:repeat_callback(function() stopcharge_unit(unit, charge_target, overcharge_time, callback_name) end, 2000,
-        callback_name)
+    bm:repeat_callback(
+        function()
+            stopcharge_unit(unit, charge_target, overcharge_time, callback_name)
+        end,
+        2000,
+        callback_name
+    )
 
     bm:callback(
         function()
@@ -329,16 +377,15 @@ end
 
 function unit_free_move(unit, time)
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    local callback_name = "freeze_unit_" .. unit:unique_ui_id();
+    local callback_name = tcs_battle.unit_callback_names["stopmove"] .. unit:unique_ui_id()
 
     bm:remove_callback(callback_name);
 
     unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can move freely.");
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can move freely.", __FILE__(), __LINE__(), __FUNC__());
 
     bm:callback(
         function()
-            bm:remove_callback(callback_name)
             freeze_unit(unit)
         end,
         time,
@@ -349,27 +396,24 @@ end
 function stopretreat_unit(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
 
-    local callback_name = "stopretreat_unit_" .. unit:unique_ui_id();
-
     if scrunit_is_engaged(scrunit) then
-        tcs:log("Unit(" .. unit:unique_ui_id() .. ") still engaged.")
+        tcs:log("Unit(" .. unit:unique_ui_id() .. ") still engaged.", __FILE__(), __LINE__(), __FUNC__())
         scrunit:withdraw(true)
         bm:callback(
             function()
                 stopretreat_unit(unit)
             end,
             3000,
-            callback_name
-            )
+            tcs_battle.unit_callback_names["stopretreat"] .. unit:unique_ui_id()
+        )
         return
     end
 
     unit:disable_special_ability("tcs_main_unit_passive_stationary", false)
-    scrunit:halt()
-    scrunit:release_control()
-    tcs_battle.unit_actively_retreating[unit:unique_ui_id()] = false
+    stop_scrunit(scrunit)
+    tcs_battle.unit_actively_retreating[unit:unique_ui_id()] = nil
     tcs_battle:clear_unit_status(unit:unique_ui_id())
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") stopped retreating.")
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") stopped retreating.", __FILE__(), __LINE__(), __FUNC__())
 end
 
 function unit_retreat(unit, time)
@@ -377,8 +421,6 @@ function unit_retreat(unit, time)
         return
     end
     local scrunit = bm:get_scriptunit_for_unit(unit);
-
-    local callback_name = "stopretreat_unit_" .. unit:unique_ui_id();
 
     unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
     scrunit:take_control()
@@ -389,13 +431,13 @@ function unit_retreat(unit, time)
             stopretreat_unit(unit)
         end,
         time,
-        callback_name
+        tcs_battle.unit_callback_names["stopretreat"] .. unit:unique_ui_id()
     )
 
     tcs_battle.unit_actively_retreating[unit:unique_ui_id()] = true
     tcs_battle.unit_retreated[unit:unique_ui_id()] = true
     tcs_battle:set_unit_status(unit:unique_ui_id(), "retreating")
-    tcs:log("Unit(" .. unit:unique_ui_id() .. ") is retreating.")
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") is retreating.", __FILE__(), __LINE__(), __FUNC__())
 end
 
 function unit_crumble(unit, time)
@@ -403,7 +445,7 @@ function unit_crumble(unit, time)
     scrunit:morale_behavior_rout()
     bm:callback(
         function()
-            scrunit:morale_behavior_default()
+            disable_morale(unit)
         end,
         time
     )
@@ -411,7 +453,13 @@ end
 
 function unit_break(unit, time)
     local unit_cco = tcs_get_battleunit_cco(unit:unique_ui_id())
-    tcs:log("Break testing Unit(" .. unit:unique_ui_id() .. ") with morale: " .. unit_cco:Call("MoralePercent"))
+    if not unit_cco then
+        return
+    end
+
+    tcs:log(
+        string.format("Break testing Unit(%d) with morale %.2f", unit:unique_ui_id(), unit_cco:Call("MoralePercent")),
+        __FILE__(), __LINE__(), __FUNC__())
 
     if unit_cco:Call("MoralePercent") < (tcs:get_config("unit_break_point") / 100) then
         local unit_details_cco = unit_cco:Call("UnitDetailsContext")
@@ -419,17 +467,26 @@ function unit_break(unit, time)
 
         local diceroll = roll_dice(tcs:get_config("break_test_dice"), tcs:get_config("default_dice_eyes"))
 
-        local breakpoint = normalise_to_range(unit_base_leadership, 100, tcs:get_config("break_test_dice"), tcs:get_config("default_dice_eyes"))
+        local breakpoint = normalise_to_range(unit_base_leadership, 100, tcs:get_config("break_test_dice"),
+            tcs:get_config("default_dice_eyes"))
 
-        tcs:log("Unit(" .. unit:unique_ui_id() .. ") rolled for breaking: " .. diceroll .. "/" .. breakpoint)
+        tcs:log("Unit(" .. unit:unique_ui_id() .. ") rolled for breaking: " .. diceroll .. "/" .. breakpoint, __FILE__(),
+            __LINE__(), __FUNC__())
 
         if diceroll > breakpoint then
-            tcs:log("Unit(" .. unit:unique_ui_id() .. ") broke")
+            tcs:log("Unit(" .. unit:unique_ui_id() .. ") broke", __FILE__(), __LINE__(), __FUNC__())
             if unit_cco:Call("IsUndead") then
                 unit_crumble(unit, time)
             else
+                disable_morale(unit)
                 unit_retreat(unit, time)
             end
+        else
+            tcs_battle:set_unit_status(unit:unique_ui_id(),
+                string.format("did not break (%d/%.2f)", diceroll, breakpoint))
+            disable_morale(unit)
         end
+        return
     end
+    disable_morale(unit)
 end

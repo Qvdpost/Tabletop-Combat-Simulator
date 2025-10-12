@@ -15,18 +15,35 @@ local tcs = {
         default_charge_dice = 2,
         default_dice_eyes = 6,
         default_run_dice = 1,
-        pile_in_time = 3,
+        pile_in_time = 5,
         break_test_dice = 2,
         unit_break_duration = 25,
-        unit_break_point = 35
+        unit_break_point = 35,
+        introduction_tour = false,
+        enable_ai_controls = false
     }
 };
 
+
+
+function __FILE__() return debug.getinfo(2, 'S').source end
+function __LINE__() return debug.getinfo(2, 'l').currentline end
+function __FUNC__() return debug.getinfo(2, 'n').name end
+
 -- GENERIC --
-function tcs:log(text)
+function tcs:log(text, func_file, func_line, func_name)
     if tcs:get_config("logging_enabled") then
         -- Code taken from Mixu's Mixer Mod
-        ftext = "[Quinner|TCS]";
+        if not func_file then
+            func_file = "?"
+        end
+        if not func_line then
+            func_line = "?"
+        end
+        if not func_name then
+            func_name = "?"
+        end
+        ftext = string.format("[TCS:%s.%s:%s]", func_file, tostring(func_line), func_name);
             
         if enable_logging == false then
             return

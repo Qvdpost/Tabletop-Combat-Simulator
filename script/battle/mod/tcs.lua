@@ -6,10 +6,6 @@ tcs_battle = core:get_static_object("tcs_battle");
 -- BATTLE TEST SCRIPTS
 -----------------------------------------------------
 
-function reselect_units()
-    bm:clear_selection();
-end
-
 function get_next_alliance_index(index)
     index = index or tcs_battle.active_player_alliance_index
     local next_index = math.fmod(index + 1, bm:alliances():count())
@@ -30,6 +26,18 @@ function disable_non_passives(unit, time)
     end
 end
 
+function disable_tcs_passives(unit, time)
+    for key, ability in pairs(tcs_battle.unit_passives) do
+        unit:disable_special_ability(ability, true)
+    end
+end
+
+function enable_tcs_passives(unit, time)
+    for key, ability in pairs(tcs_battle.unit_passives) do
+        unit:disable_special_ability(ability, false)
+    end
+end
+
 function enable_non_passives(unit, time)
     for key, ability in pairs(unit:owned_non_passive_special_abilities()) do
         unit:disable_special_ability(ability, false)
@@ -41,6 +49,64 @@ function enable_non_passives(unit, time)
         end,
         time
     )
+end
+
+function tag_active(unit)
+    tcs_battle.active_units[unit] = true
+end
+
+function cleanup_inactive_units()
+    local activity_tables = {
+        { units = tcs_battle.ai_actively_shooting,     status = "shooting (AI)" },
+        { units = tcs_battle.ai_actively_moving,       status = "moving (AI)" },
+        { units = tcs_battle.ai_actively_charging,     status = "charging (AI)" },
+        { units = tcs_battle.ai_actively_fighting,     status = "fighting (AI)" },
+        { units = tcs_battle.ai_actively_retreating,   status = "retreating (AI)" },
+        { units = tcs_battle.unit_actively_moving,     status = "moving" },
+        { units = tcs_battle.unit_actively_fighting,   status = "fighting" },
+        { units = tcs_battle.unit_actively_shooting,   status = "shooting" },
+        { units = tcs_battle.unit_actively_charging,   status = "charging" },
+        { units = tcs_battle.unit_actively_retreating, status = "retreating" },
+    }
+    for unit, _ in pairs(tcs_battle.active_units) do
+        if unit:number_of_men_alive() == 0 then
+            tcs:log("Cleaning up unit: " .. unit:unique_ui_id(), __FILE__(), __LINE__(), __FUNC__())
+            tcs_battle.active_units[unit] = nil
+
+            for key, callback_name in pairs(tcs_battle.unit_callback_names) do
+                bm:remove_callback(callback_name .. unit:unique_ui_id())
+            end
+            for _, activity_table in pairs(activity_tables) do
+                activity_table.units[unit:unique_ui_id()] = nil
+            end
+        end
+    end
+end
+
+function cleanup_all_units()
+    local activity_tables = {
+        { units = tcs_battle.ai_actively_shooting,     status = "shooting (AI)" },
+        { units = tcs_battle.ai_actively_moving,       status = "moving (AI)" },
+        { units = tcs_battle.ai_actively_charging,     status = "charging (AI)" },
+        { units = tcs_battle.ai_actively_fighting,     status = "fighting (AI)" },
+        { units = tcs_battle.ai_actively_retreating,   status = "retreating (AI)" },
+        { units = tcs_battle.unit_actively_moving,     status = "moving" },
+        { units = tcs_battle.unit_actively_fighting,   status = "fighting" },
+        { units = tcs_battle.unit_actively_shooting,   status = "shooting" },
+        { units = tcs_battle.unit_actively_charging,   status = "charging" },
+        { units = tcs_battle.unit_actively_retreating, status = "retreating" },
+    }
+    for unit, _ in pairs(tcs_battle.active_units) do
+        tcs:log("Cleaning up unit: " .. unit:unique_ui_id(), __FILE__(), __LINE__(), __FUNC__())
+        tcs_battle.active_units[unit] = nil
+
+        for key, callback_name in pairs(tcs_battle.unit_callback_names) do
+            bm:remove_callback(callback_name .. unit:unique_ui_id())
+        end
+        for _, activity_table in pairs(activity_tables) do
+            activity_table.units[unit:unique_ui_id()] = nil
+        end
+    end
 end
 
 function fix_ai_shooting()
@@ -78,6 +144,22 @@ function disable_melee_attacks(unit)
     --     end
 end
 
+function enable_missile_attacks(unit)
+    unit:set_stat_attribute("shoot_disabled", false)
+    --     TODO: Only enable non splash attackers?
+    --     if tcs_splash_units[ai_unit:type()] then
+    --         ai_unit:set_stat_attribute("melee_disabled", false)
+    --     end
+end
+
+function disable_missile_attacks(unit)
+    unit:set_stat_attribute("shoot_disabled", true)
+    --     TODO: Only enable non splash attackers?
+    --     if tcs_splash_units[ai_unit:type()] then
+    --         ai_unit:set_stat_attribute("melee_disabled", false)
+    --     end
+end
+
 function enable_morale(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit)
     scrunit:morale_behavior_default()
@@ -100,7 +182,7 @@ end
 
 function enable_unit_shoot(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    if not tcs_battle.unit_ran[unit:unique_ui_id()] and not tcs_battle.unit_retreated[unit:unique_ui_id()] then
+    if (not tcs_battle.unit_ran[unit:unique_ui_id()] or unit:has_attribute("fire_while_moving")) and not tcs_battle.unit_retreated[unit:unique_ui_id()] then
         scrunit.uc:reset_ability_number_of_uses("tcs_main_unit_active_shoot")
         unit:disable_special_ability("tcs_main_unit_active_shoot", false)
     end
@@ -138,6 +220,69 @@ function enable_unit_run(unit)
         scrunit.uc:reset_ability_number_of_uses("tcs_main_unit_active_run")
         unit:disable_special_ability("tcs_main_unit_active_run", false)
     end
+end
+
+function stop_scrunit(scrunit)
+    scrunit:take_control()
+    scrunit:halt();
+    scrunit:taunt();
+    scrunit:release_control()
+
+    bm:callback(
+        function()
+            scrunit:take_control()
+            scrunit:halt();
+            scrunit:taunt();
+            scrunit:release_control()
+        end,
+        500
+    )
+end
+
+function stop_unit(unit)
+    local scrunit = bm:get_scriptunit_for_unit(unit)
+    scrunit:take_control()
+    scrunit:halt();
+    scrunit:taunt();
+    scrunit:release_control()
+
+    bm:callback(
+        function()
+            scrunit:take_control()
+            scrunit:halt();
+            scrunit:taunt();
+            scrunit:release_control()
+        end,
+        500
+    )
+end
+
+function land_unit(unit)
+    if not tcs_battle.unit_should_land[unit:unique_ui_id()] then
+        bm:remove_callback(tcs_battle.unit_callback_names["landunit"] .. unit:unique_ui_id())
+        return
+    end
+
+    if not unit:is_currently_flying() then
+        tcs:log(string.format("Unit (%d) is currently not flying.", unit:unique_ui_id()), __FILE__(), __LINE__(),
+            __FUNC__())
+        return
+    end
+
+    local unit_cco = tcs_get_battleunit_cco(unit:unique_ui_id())
+    if not unit_cco then
+        return
+    end
+
+    if not unit_cco:Call("CanToggleFlying") then
+        tcs:log(string.format("Unit (%d) cannot toggle not flying now.", unit:unique_ui_id()), __FILE__(), __LINE__(),
+            __FUNC__())
+        return
+    end
+
+    unit_cco:Call("ToggleFlying")
+    bm:remove_callback(tcs_battle.unit_callback_names["landunit"] .. unit:unique_ui_id())
+    tcs_battle.unit_should_land[unit:unique_ui_id()] = nil
 end
 
 function disable_unit_activations(unit)
@@ -214,10 +359,19 @@ function nearest_enemy_at_destination(scrunit)
     return enemy_scrunits:item(get_nearest(scrunit:get_cached_destination_position(), enemy_scrunits))
 end
 
+function scrunit_is_alive(scrunit)
+    return scrunit.unit:number_of_men_alive() > 0
+end
+
 function nearest_enemy(scrunit, reachable)
+    -- TODO: look into get_closest_unit with extra checks
+    -- get_closest_standing_unit(object unit collection, vector position, [function additional test])
     reachable = reachable or true
 
-    local enemy_scrunits = reachable_enemy_scrunits(scrunit)
+    local enemy_scrunits = reachable_enemy_scrunits(scrunit):filter("nearest_enemies", scrunit_is_alive)
+
+
+
 
     if enemy_scrunits:count() == 0 then
         return nil
@@ -227,7 +381,8 @@ function nearest_enemy(scrunit, reachable)
 end
 
 function nearest_flying_enemy(scrunit)
-    local enemy_scrunits = reachable_enemy_scrunits(scrunit):filter("nearest_enemies", scrunit_is_currently_flying)
+    local enemy_scrunits = reachable_enemy_scrunits(scrunit):filter("nearest_enemies", scrunit_is_alive):filter(
+    "nearest_enemies", scrunit_is_currently_flying)
     if enemy_scrunits:count() == 0 then
         return nil
     end
@@ -253,15 +408,16 @@ function scrunit_is_engaged(scrunit, offset)
 end
 
 function perform_next_phase()
+    mapf_to_all_units(stop_unit)
     bm:alliances():item(bm:local_alliance()):armies():item(bm:local_army()):use_special_ability("tcs_next_phase",
         battle_vector:new())
 end
 
 function mapf_to_selected_units(func, time, ability)
     local time = time or nil;
-    tcs:log("Selected units:")
+    tcs:log("Selected units:", __FILE__(), __LINE__(), __FUNC__())
     for k, v in pairs(tcs_battle.selected_units) do
-        tcs:log(k .. ":" .. v:type());
+        tcs:log(k .. ":" .. v:type(), __FILE__(), __LINE__(), __FUNC__());
     end
     for unit_id, unit in pairs(tcs_battle.selected_units) do
         if unit:can_perform_special_ability(ability) then
@@ -277,7 +433,9 @@ function mapf_to_local_player_units(func, time)
     local time = time or nil;
     local player_scrunits = bm:get_scriptunits_for_local_players_army()
     for k, unit in pairs(player_scrunits:get_unit_table()) do
-        func(unit, time)
+        if unit:number_of_men_alive() > 0 then
+            func(unit, time)
+        end
     end
 end
 
@@ -287,7 +445,9 @@ function mapf_to_active_player_units(func, time)
         battle_army = active_player_alliance():armies():item(army);
         for unit_id = 1, battle_army:units():count() do
             local unit = battle_army:units():item(unit_id);
-            func(unit, time)
+            if unit:number_of_men_alive() > 0 then
+                func(unit, time)
+            end
         end
     end
 end
@@ -302,7 +462,9 @@ function mapf_to_ai_units(func, time)
                 if not (ai_army:is_player_controlled()) then
                     for unit_id = 1, ai_army:units():count() do
                         local ai_unit = ai_army:units():item(unit_id);
-                        func(ai_unit, time)
+                        if ai_unit:number_of_men_alive() > 0 then
+                            func(ai_unit, time)
+                        end
                     end
                 end
             end
@@ -318,7 +480,9 @@ function mapf_to_all_units(func, time)
             units_army = army_alliance:armies():item(army);
             for unit_id = 1, units_army:units():count() do
                 local ai_unit = units_army:units():item(unit_id);
-                func(ai_unit, time)
+                if ai_unit:number_of_men_alive() > 0 then
+                    func(ai_unit, time)
+                end
             end
         end
     end
@@ -374,6 +538,31 @@ function any_units_firing_missile(scrunits)
     return false
 end
 
+function any_unit_still_active()
+    local activity_tables = {
+        { units = tcs_battle.ai_actively_shooting,     status = "shooting (AI)" },
+        { units = tcs_battle.ai_actively_moving,       status = "moving (AI)" },
+        { units = tcs_battle.ai_actively_charging,     status = "charging (AI)" },
+        { units = tcs_battle.ai_actively_fighting,     status = "fighting (AI)" },
+        { units = tcs_battle.ai_actively_retreating,   status = "retreating (AI)" },
+        { units = tcs_battle.unit_actively_moving,     status = "moving" },
+        { units = tcs_battle.unit_actively_fighting,   status = "fighting" },
+        { units = tcs_battle.unit_actively_shooting,   status = "shooting" },
+        { units = tcs_battle.unit_actively_charging,   status = "charging" },
+        { units = tcs_battle.unit_actively_retreating, status = "retreating" },
+    }
+
+    for _, activity_table in pairs(activity_tables) do
+        local active_unit = next(activity_table.units)
+        if active_unit then
+            tcs:log("Unit(" .. active_unit .. ") still actively :" .. activity_table.status, __FILE__(), __LINE__(),
+                __FUNC__())
+            return active_unit, activity_table.status
+        end
+    end
+    return nil, nil
+end
+
 local function switch(x, cases)
     local match = cases[x] or cases.default or function() end
 
@@ -422,18 +611,6 @@ function get_sunit_by_id(uid)
     return nil
 end
 
-function get_selected_unit_ability_cco(ability_record)
-    local unit_cco = cco("CcoBattleSelection", 1):Call("FirstUnitContext")
-
-    for i = 1, unit_cco:Call("AbilityList.Size") do
-        if unit_cco:Call("AbilityList")[i]:Call("RecordKey") == ability_record then
-            return unit_cco:Call("AbilityList")[i]
-        end
-    end
-
-    return nil
-end
-
 function get_unit_battle_ability_cco(unit, ability_record)
     local unit_cco = cco("CcoBattleUnit", unit:unique_ui_id())
 
@@ -446,19 +623,28 @@ function get_unit_battle_ability_cco(unit, ability_record)
     return nil
 end
 
+function terminate_tcs()
+    mapf_to_all_units(disable_tcs_passives)
+    for _, callback in pairs(tcs_battle.tcs_callback_names) do
+        bm:remove_real_callback(callback)
+    end
+
+    cleanup_all_units()
+end
+
 -- Test scripts placed here will be called when the battle script environment is started - this happens
 -- right at the end of the loading sequence in to any battle
 function battle_startup_test_scripts_here()
-    tcs:log("*** tcs script loaded - Tabletop Combat Simulator engaged. ***\n\n");
+    tcs:log("*** tcs script loaded - Tabletop Combat Simulator engaged. ***\n\n", __FILE__(), __LINE__(), __FUNC__());
 
     function active_unit_handler(unit, is_selected)
         if is_selected then
             -- track selected units
-            -- tcs:log("Selected: " .. unit:unique_ui_id() .. ":" .. unit:type())
+            -- tcs:log("Selected: " .. unit:unique_ui_id() .. ":" .. unit:type(), __FILE__(), __LINE__(), __FUNC__())
             tcs_battle.selected_units[unit:unique_ui_id()] = unit;
         else
             -- track unselected units
-            -- tcs:log("Unselected: " .. unit:unique_ui_id() .. ":" .. unit:type())
+            -- tcs:log("Unselected: " .. unit:unique_ui_id() .. ":" .. unit:type(), __FILE__(), __LINE__(), __FUNC__())
             tcs_battle.selected_units[unit:unique_ui_id()] = nil;
         end
     end
@@ -513,7 +699,7 @@ function battle_startup_test_scripts_here()
         }
 
         local ability_name = event:get_string1();
-        tcs:log("Ability used: " .. ability_name);
+        tcs:log("Ability used: " .. ability_name, __FILE__(), __LINE__(), __FUNC__());
 
         switch(ability_name, cases)
     end
@@ -524,14 +710,15 @@ end;
 -- Test scripts placed here will be called in battle when deployment phase commences
 function battle_deployment_test_scripts_here()
     tcs:clear_log();
-    tcs:log("Battle Deployment started.");
+    tcs:log("Battle Deployment started.", __FILE__(), __LINE__(), __FUNC__());
 
     mapf_to_ai_units(disable_non_passives);
     fix_ai_shooting();
     mapf_to_all_units(disable_fire_at_will);
     mapf_to_all_units(disable_morale)
+    -- mapf_to_all_units(disable_melee_attacks) -- Now included in passive_inactive_fighting
 
-    if bm:is_multiplayer() then
+    if bm:is_multiplayer() or not tcs:get_config("enable_ai_controls") then
         show_ai_controls(false)
     end
 
@@ -545,10 +732,16 @@ function battle_deployment_test_scripts_here()
 
     setup_phase_controls()
     set_active_crest()
+
+    if tcs_battle.active_player_alliance_index == bm:local_alliance() then
+        set_title_message("You Go First")
+    else
+        set_title_message("You Go Second")
+    end
 end;
 
 function battle_conflict_test_scripts_here()
-    tcs:log("Battle Deployment done; combat starting.");
+    tcs:log("Battle Deployment done; combat starting.", __FILE__(), __LINE__(), __FUNC__());
 
     core:trigger_custom_event('button_hero_phase', {})
 
@@ -557,7 +750,17 @@ function battle_conflict_test_scripts_here()
             create_unit_status()
         end,
         200,
-        "tcs_unit_status"
+        tcs_battle.tcs_real_callback_names["unit_status"]
+    )
+
+    mapf_to_all_units(tag_active)
+
+    bm:repeat_real_callback(
+        function()
+            cleanup_inactive_units()
+        end,
+        1000,
+        tcs_battle.tcs_real_callback_names["unit_dies"]
     )
 end
 
