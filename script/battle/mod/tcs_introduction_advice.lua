@@ -25,7 +25,7 @@ do
         }
     );
 
-    am:set_advice_level(0)
+    am:set_advice_level(2)
     
     local function show_condition()
         return not core:svr_load_registry_bool("tcs_introduction_tour") or tcs:get_config("introduction_tour")

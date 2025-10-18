@@ -7,6 +7,8 @@ local tcs_battle = {
     charge_range = 120,
     charge_dice_count = 4,
 
+    proxy_id = nil,
+
     ai_actively_shooting = {},
     ai_actively_moving = {},
     ai_actively_charging = {},
@@ -20,6 +22,7 @@ local tcs_battle = {
     unit_actively_retreating = {},
 
     unit_should_land = {},
+    unit_cards_count = 0,
 
     active_units = {},
     unit_ran = {},
@@ -58,6 +61,7 @@ local tcs_battle = {
         "tcs_main_unit_active_charge",
         "tcs_main_unit_active_retreat",
         "tcs_main_unit_active_run",
+        "tcs_main_unit_active_reform",
         "tcs_next_phase"
     },
 
@@ -69,7 +73,10 @@ local tcs_battle = {
         stopshoot = "stopshoot_",
         stopcharge = "stopcharge_",
         stopretreat = "stopretreat_",
-        landunit = "landunit_"
+        landunit = "landunit_",
+        startmove = "startmove_unit_",
+        startfight = "startfight_unit_",
+        startshoot = "startshoot_unit_"
     },
 
     army_ai_controls = {
@@ -86,10 +93,30 @@ local tcs_battle = {
         "tcs_main_unit_passive_stationary",
     },
 
-    tcs_real_callback_names = {
+    real_callback_names = {
         unit_status = "tcs_unit_status",
-        unit_dies = "tcs_unit_dies"
-    }
+        unit_dies = "tcs_unit_dies",
+        unit_summoned = "tcs_unit_summoned"
+    },
+
+    listener_names = {
+        button_next_phase = "tcs_next_phase_button",
+        button_move = "tcs_button_move_phase",
+        button_shoot = "tcs_button_shoot_phase",
+        button_charge = "tcs_button_charge_phase",
+        button_fight = "tcs_button_fight_phase",
+        next_phase = "tcs_Next_Phase",
+        hero_phase = "tcs_Hero_Phase",
+        move_phase = "tcs_Move_Phase",
+        shoot_phase = "tcs_Shooting_Phase",
+        charge_phase = "tcs_Charge_Phase",
+        fight_phase = "tcs_Fight_Phase",
+        target_tracker = "tcs_target_tracker",
+        position_tracker = "tcs_position_tracker",
+    },
+
+    unit_movement_range = {},
+    unit_movement_warned = {}
 }
 
 function tcs_battle:set_unit_status(unit_id, status, seconds)
@@ -97,11 +124,22 @@ function tcs_battle:set_unit_status(unit_id, status, seconds)
 end
 
 function tcs_battle:get_unit_status(unit_id)
+    if not self.unit_status[unit_id] then
+        return {status = nil, time = nil}
+    end
     return self.unit_status[unit_id]
 end
 
 function tcs_battle:clear_unit_status(unit_id)
     self.unit_status[unit_id] = nil
+end
+
+function tcs_battle:clear_all_unit_statuses()
+    self.unit_status = {}
+end
+
+function tcs_battle:get_listener_name(key)
+    return self.listener_names[key]
 end
 
 core:add_static_object("tcs_battle", tcs_battle);

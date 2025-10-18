@@ -43,10 +43,8 @@
         <simple_timer
             this="FB5630C0-6CE5-B74C-478D962C5C5A9C22"
             id="tcs_unit_status"
-            dockpoint="Top Center"
+            dockpoint="Bottom Center"
             offset="0.00,0.00"
-            allowhorizontalresize="false"
-            allowverticalresize="false"
             tooltipslocalised="true"
             uniqueguid="FB5630C0-6CE5-B74C-478D962C5C5A9C22"
             updatewhennotvisible="true"
@@ -80,6 +78,7 @@
                     <component_text
                         text="-"
                         texthalign="Center"
+                        textvalign="Center"
                         textyoffset="3.00,0.00"
                         texthbehaviour="Never split"
                         textlabel="StateText_75d8a0b2"

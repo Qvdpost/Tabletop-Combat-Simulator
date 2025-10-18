@@ -1,7 +1,11 @@
 local tcs = {
     config = {
         logging_enabled = false,
-        move_time = 20,
+        min_movement_range = 30,
+        max_movement_range = 120,
+        max_run_distance = 60,
+        max_unit_speed = 140,
+        unit_reform_cost = 15,
         fight_time = 20,
         shoot_time = 10,
         retreat_time = 10,
@@ -9,7 +13,9 @@ local tcs = {
         ai_fight_time = 20,
         ai_shoot_time = 10,
         ai_hero_time = 5,
+        overcharge_time = 10,
         force_formed_attack = false,
+        force_straight_movement = false,
         warn_about_engagement_range = false,
         warn_about_engagement_range_distance = 15,
         default_charge_dice = 2,
@@ -24,44 +30,31 @@ local tcs = {
     }
 };
 
-
-
-function __FILE__() return debug.getinfo(2, 'S').source end
-function __LINE__() return debug.getinfo(2, 'l').currentline end
-function __FUNC__() return debug.getinfo(2, 'n').name end
-
 -- GENERIC --
-function tcs:log(text, func_file, func_line, func_name)
+function tcs:log(text)
     if tcs:get_config("logging_enabled") then
         -- Code taken from Mixu's Mixer Mod
-        if not func_file then
-            func_file = "?"
-        end
-        if not func_line then
-            func_line = "?"
-        end
-        if not func_name then
-            func_name = "?"
-        end
-        ftext = string.format("[TCS:%s.%s:%s]", func_file, tostring(func_line), func_name);
-            
+
         if enable_logging == false then
             return
         end
-            
+
         if not __write_output_to_logfile then
             return;
         end
+        
+        local info = debug.getinfo(2, "Sl")
+
+        ftext = string.format("[TCS:%s:%s]", info.short_src, info.currentline);
 
         local logText = tostring(text)
         local logContext = tostring(ftext)
         local logTimeStamp = os.date("%d-%m-%Y %X")
-        local popLog = io.open("mod_logs/tcs.log","a")
+        local popLog = io.open("mod_logs/tcs.log", "a")
 
-        popLog :write(logContext .. ":  "..logText .. "    : [".. logTimeStamp .. "]\n")
-        popLog :flush()
-        popLog :close()
-
+        popLog:write(logContext .. ":  " .. logText .. "    : [" .. logTimeStamp .. "]\n")
+        popLog:flush()
+        popLog:close()
     end
 end
 
@@ -69,11 +62,11 @@ function tcs:clear_log()
     if tcs:get_config("logging_enabled") then
         -- Code taken from Mixu's Mixer Mod
         ftext = "[Quinner|TCS]";
-            
+
         if enable_logging == false then
             return
         end
-            
+
         if not __write_output_to_logfile then
             return;
         end
@@ -81,12 +74,11 @@ function tcs:clear_log()
         local logText = tostring(text)
         local logContext = tostring(ftext)
         local logTimeStamp = os.date("%d-%m-%Y %X")
-        local popLog = io.open("mod_logs/tcs.log","w")
+        local popLog = io.open("mod_logs/tcs.log", "w")
         local logText = "Tabletop Combat Simulator initialized."
-        popLog :write(logContext .. ":  "..logText .. "    : [".. logTimeStamp .. "]\n")
-        popLog :flush()
-        popLog :close()
-
+        popLog:write(logContext .. ":  " .. logText .. "    : [" .. logTimeStamp .. "]\n")
+        popLog:flush()
+        popLog:close()
     end
 end
 
@@ -123,6 +115,5 @@ function tcs:set_config(config_key, config_value)
 
     return self.config[config_key];
 end
-
 
 core:add_static_object("tcs", tcs);

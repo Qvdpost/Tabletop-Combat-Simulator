@@ -1,7 +1,5 @@
 key	text	tooltip
 #Loc;1;text/zzz_missing_locs_Tabletop_Combat_Sim.pack.loc		
-advice_levels_advice_item_title_34000001	PLACEHOLDER	false
-advice_levels_onscreen_text_34000001	PLACEHOLDER	false
 effect_bundles_localised_title_tcs_army_controls	PLACEHOLDER	false
 effect_bundles_localised_description_tcs_army_controls	PLACEHOLDER	false
 effects_description_tcs_main_effect_ability_inactive_fighting	PLACEHOLDER	false

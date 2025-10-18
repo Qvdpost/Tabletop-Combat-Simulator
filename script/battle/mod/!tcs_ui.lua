@@ -2,7 +2,11 @@ local tcs = core:get_static_object("tcs");
 local tcs_battle = core:get_static_object("tcs_battle");
 
 function reselect_units()
-    bm:clear_selection()
+    -- TODO: Find a way to reload the porthole ability parent.
+    -- local root = core:get_ui_root()
+    -- local unit_ability_holder = find_uicomponent(root, "hud_battle", "porthole_parent")
+    -- unit_ability_holder:Layout()
+
     -- local unit_cco = cco("CcoBattleSelection", 1):Call("FirstUnitContext")
     -- if not unit_cco then
     --     return
@@ -17,6 +21,8 @@ function reselect_units()
     --         ability_cco:SetVisible(true)
     --     end
     -- end
+    bm:clear_selection()
+    return
 end
 
 function zoom_to(unique_ui_id)
@@ -24,6 +30,22 @@ function zoom_to(unique_ui_id)
     if unit_cco then
         unit_cco:Call("ZoomTo")
     end
+end
+
+function get_cursor_position()
+    local battle_root = cco("CcoBattleRoot", 1)
+    local cursor = battle_root:Call("CursorContextContext")
+
+    if cursor:Call("HasIntersections") then
+        local cursor_vector = battle_vector:new(
+            cursor:Call("GroundIntersectPosition.x"),
+            cursor:Call("GroundIntersectPosition.y"),
+            cursor:Call("GroundIntersectPosition.z")
+        )
+        return cursor_vector
+    end
+
+    return nil
 end
 
 function create_unit_status()
@@ -40,7 +62,8 @@ function create_unit_status()
         return
     end
 
-    local unit_cco = find_uicomponent(parent, "hud_battle", "info_panel_parent", "info_panel_background"):GetContextObject("CcoUnitDetails")
+    local unit_cco = find_uicomponent(parent, "hud_battle", "info_panel_parent", "info_panel_background")
+        :GetContextObject("CcoUnitDetails")
 
     if not unit_cco then
         return
@@ -53,22 +76,51 @@ function create_unit_status()
     unit_status_component:SetDockingPoint(2)
     unit_status_component:SetDockOffset(0, -20)
 
-    local unit_status = tcs_battle:get_unit_status(unit_cco:Call("BattleUnitContext.UniqueUiId"))
+    local scrunit = get_sunit_by_id(unit_cco:Call("BattleUnitContext.UniqueUiId"))
+
+    if not scrunit then
+        return
+    end
+
+    local unit_status = tcs_battle:get_unit_status(scrunit.unit:unique_ui_id())
     local some_text = "Unit is currently "
 
-    if unit_status then
+    if unit_status.status then
         some_text = some_text .. unit_status.status
 
         if unit_status.time then
             some_text = some_text .. " for " .. string.format("%.1f", unit_status.time) .. " seconds"
         end
     else
-        some_text = some_text .. "idle"
+        some_text = some_text .. "idle."
+        if tcs_battle.current_phase == "button_move_phase" then
+            local cursor_vector = get_cursor_position()
+            if cursor_vector then
+                local unit_distance = get_unit_to_position_distance(scrunit.unit, cursor_vector)
+                local movement_range = tcs_battle.unit_movement_range[scrunit.unit:unique_ui_id()]
+                if unit_distance and movement_range then
+                    if unit_distance <= movement_range then
+                        some_text = some_text .. "\nCan move: "
+                    else
+                        some_text = some_text .. "\nCannot move: "
+                    end
+
+                    some_text = some_text .. string.format("%d/%d", unit_distance, movement_range)
+                end
+            end
+        end
     end
 
     unit_status_component:SetCanResizeWidth(true)
+    unit_status_component:SetCanResizeHeight(true)
 
-    unit_status_component:SetStateText(some_text)
+    local text_width, text_height = unit_status_component:TextDimensionsForText(some_text)
+
+    if type(text_height) == "number" and type(text_width) == "number" then
+        unit_status_component:Resize(text_width + 10, text_height + 10)
+        unit_status_component:SetDockOffset(0, -10 - text_height)
+        unit_status_component:SetStateText(some_text)
+    end
 
     return unit_status_component
 end
@@ -169,6 +221,18 @@ function setup_phase_controls()
         "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
 
     reset_phases();
+
+    enable_next_phase_button(false)
+end
+
+function remove_phase_controls()
+    local parent = core:get_ui_root()
+    local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
+
+    local phase_control_panel = core:get_or_create_component("phase_control_panel",
+        "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
+    
+        phase_control_panel:Destroy()
 end
 
 function remake_flag_path(flag_path)
@@ -193,7 +257,7 @@ function battleshock_tickdown(seconds)
     local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
 
     local player_title = find_uicomponent(bop_holder, "phase_control_panel", "player_pane", "player_title")
-    
+
     local title_text = "Battleshock: " .. seconds
 
     player_title:SetStateText(title_text)
@@ -270,4 +334,62 @@ function get_ability_button_cco(ability_key)
         end
     end
     return nil
+end
+
+function animate_selection_proxy_on_cursor()
+    local unit_cco = cco("CcoBattleSelection", 1):Call("FirstUnitContext")
+    if not unit_cco then
+        return
+    end
+    local scrunit = get_sunit_by_id(unit_cco:Call("UniqueUiId"))
+
+    if not scrunit then
+        return
+    end
+    scrunit:cache_location()
+    local scrunit_width = scrunit:get_cached_width();
+    local scrunit_bearing = scrunit:get_cached_bearing();
+    local combat_area_depth = 10;
+
+    local centre_pos = v_offset_by_bearing(scrunit.unit:position(), d_to_r(scrunit_bearing), combat_area_depth / 2);
+    local bounding_box = {
+        pos = centre_pos,
+        bearing = scrunit_bearing,
+        width = scrunit_width,
+        depth = combat_area_depth
+    }
+    local bounding_box_bearing_r = d_to_r(bounding_box.bearing);
+    local bounding_box_half_width = bounding_box.width / 2;
+
+    local bounding_box_left = v_offset_by_bearing(bounding_box.pos, bounding_box_bearing_r - math.pi / 2,
+        bounding_box_half_width);
+    local bounding_box_right = v_offset_by_bearing(bounding_box.pos, bounding_box_bearing_r + math.pi / 2,
+        bounding_box_half_width);
+
+    local distance_of_units_to_proxy = 60
+
+    pos_proxy_centre = v_offset_by_bearing(bounding_box.pos, bounding_box_bearing_r, distance_of_units_to_proxy);
+    pos_proxy_left = v_to_ground(
+        v_offset_by_bearing(pos_proxy_centre, bounding_box_bearing_r - math.pi / 2, bounding_box_half_width), 10);
+    pos_proxy_right = v_to_ground(
+        v_offset_by_bearing(pos_proxy_centre, bounding_box_bearing_r + math.pi / 2, bounding_box_half_width), 10);
+
+    local function show_movement_proxies()
+        if not tcs_battle.proxy_id then
+            -- tcs_battle.proxy_id = scrunit.uc:add_animated_selection_proxy(pos_proxy_left, pos_proxy_right, 1, 3, true);
+            tcs_battle.proxy_id = scrunit.uc:add_animated_selection_proxy(pos_proxy_left, pos_proxy_right, 1);
+        end;
+    end;
+
+
+    local function remove_movement_proxies()
+        if tcs_battle.proxy_id then
+            scrunit.uc:remove_animated_selection_proxy(tcs_battle.proxy_id);
+            tcs_battle.proxy_id = nil;
+        end;
+    end;
+
+    show_movement_proxies()
+
+    bm:callback(remove_movement_proxies, 5000)
 end

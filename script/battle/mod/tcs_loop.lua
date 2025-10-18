@@ -3,7 +3,7 @@ local tcs_battle = core:get_static_object("tcs_battle");
 
 
 core:add_listener(
-    "tcs_next_phase_button",
+    tcs_battle:get_listener_name("button_next_phase"),
     "ComponentLClickUp",
     function(context)
         return context.string == "next_phase_button"
@@ -23,7 +23,7 @@ core:add_listener(
 )
 
 core:add_listener(
-    "tcs_button_move_phase",
+    tcs_battle:get_listener_name("button_move"),
     "ComponentLClickUp",
     function(context)
         return context.string == "button_move_phase"
@@ -33,6 +33,7 @@ core:add_listener(
         if active_unit then
             flash_title_message("A unit is still " .. status)
             zoom_to(active_unit)
+            UIComponent(context.component):SetState("active")
             return
         end
         perform_next_phase()
@@ -42,7 +43,7 @@ core:add_listener(
 )
 
 core:add_listener(
-    "tcs_button_shoot_phase",
+    tcs_battle:get_listener_name("button_shoot"),
     "ComponentLClickUp",
     function(context)
         return context.string == "button_shoot_phase"
@@ -52,6 +53,7 @@ core:add_listener(
         if active_unit then
             flash_title_message("A unit is still " .. status)
             zoom_to(active_unit)
+            UIComponent(context.component):SetState("active")
             return
         end
         perform_next_phase()
@@ -61,7 +63,7 @@ core:add_listener(
 )
 
 core:add_listener(
-    "tcs_button_charge_phase",
+    tcs_battle:get_listener_name("button_charge"),
     "ComponentLClickUp",
     function(context)
         return context.string == "button_charge_phase"
@@ -71,6 +73,7 @@ core:add_listener(
         if active_unit then
             flash_title_message("A unit is still " .. status)
             zoom_to(active_unit)
+            UIComponent(context.component):SetState("active")
             return
         end
         perform_next_phase()
@@ -80,7 +83,7 @@ core:add_listener(
 )
 
 core:add_listener(
-    "tcs_button_fight_phase",
+    tcs_battle:get_listener_name("button_fight"),
     "ComponentLClickUp",
     function(context)
         return context.string == "button_fight_phase"
@@ -90,6 +93,7 @@ core:add_listener(
         if active_unit then
             flash_title_message("A unit is still " .. status)
             zoom_to(active_unit)
+            UIComponent(context.component):SetState("active")
             return
         end
         perform_next_phase()
@@ -99,7 +103,7 @@ core:add_listener(
 )
 
 core:add_listener(
-    "tcs_Next_Phase",
+    tcs_battle:get_listener_name("next_phase"),
     "tcs_next_phase",
     true,
     function(context)
@@ -138,22 +142,26 @@ core:add_listener(
 )
 
 core:add_listener(
-    "tcs_Hero_Phase",
+    tcs_battle:get_listener_name("hero_phase"),
     "button_hero_phase",
     true,
     function(context)
-        tcs:log("Hero Phase started: ", __FILE__(), __LINE__(), __FUNC__())
+        tcs:log("Hero Phase started: ");
 
         enable_next_phase_button(false)
         mapf_to_all_units(disable_unit_activations)
+
         reselect_units()
+
+        tcs_battle:clear_all_unit_statuses()
 
         tcs_battle.unit_ran = {};
         tcs_battle.unit_retreated = {};
+
         mapf_to_active_player_units(enable_morale)
 
         local morale_delay = 5000
-        battleshock_tickdown(morale_delay/1000)
+        battleshock_tickdown(morale_delay / 1000)
 
         bm:callback(
             function()
@@ -165,6 +173,8 @@ core:add_listener(
 
                         set_title_message("Hero Phase")
 
+                        mapf_to_active_player_units(disable_spell_effects)
+
                         local battleshock_delay = 500
                         if next(tcs_battle.unit_retreated) then
                             battleshock_delay = tcs:get_config("unit_break_duration") * 1000
@@ -173,23 +183,25 @@ core:add_listener(
                             function()
                                 enable_next_phase_button((bm:local_alliance() == tcs_battle.active_player_alliance_index))
                                 reset_phases()
+                                mapf_to_all_units(set_unit_movement)
                                 set_active_phase("button_hero_phase")
                             end,
                             battleshock_delay,
                             "tcs_ai_hero_phase"
                         )
+
                         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
                             local ai_hero_time = tcs:get_config("ai_hero_time") * 1000
                             mapf_to_ai_units(enable_non_passives, ai_hero_time)
 
 
                             bm:callback(
-                            function()
-                                core:trigger_custom_event("tcs_next_phase", {})
-                            end,
-                            math.max(battleshock_delay, ai_hero_time),
-                            "tcs_ai_hero_phase"
-                        )
+                                function()
+                                    core:trigger_custom_event("tcs_next_phase", {})
+                                end,
+                                math.max(battleshock_delay, ai_hero_time),
+                                "tcs_ai_hero_phase"
+                            )
                         end
                     end,
                     500
@@ -202,20 +214,22 @@ core:add_listener(
 )
 
 core:add_listener(
-    "tcs_Move_Phase",
+    tcs_battle:get_listener_name("move_phase"),
     "button_move_phase",
     true,
     function(context)
-        tcs:log("Move Phase started: ", __FILE__(), __LINE__(), __FUNC__())
+        tcs:log("Move Phase started: ");
 
         set_active_phase("button_move_phase")
 
         set_title_message("Move Phase")
 
+        tcs_battle:clear_all_unit_statuses()
+
+        tcs_battle.unit_movement_warned = {}
+
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_move, tcs:get_config("ai_move_time") * 1000);
-
-            local scrunits = bm:get_scriptunits_for_main_enemy_army_to_local_player()
 
             local callback_name = "stopmove_phase_ai";
 
@@ -227,7 +241,7 @@ core:add_listener(
                         bm:remove_callback(callback_name);
                         core:trigger_custom_event("tcs_next_phase", {});
                     else
-                        tcs:log("AI units still moving.", __FILE__(), __LINE__(), __FUNC__())
+                        tcs:log("AI units still moving.");
                     end
                 end,
                 2000,
@@ -238,6 +252,7 @@ core:add_listener(
             mapf_to_active_player_units(enable_unit_move)
             mapf_to_active_player_units(enable_unit_run)
             mapf_to_active_player_units(enable_unit_retreat)
+            mapf_to_active_player_units(enable_unit_reform)
             reselect_units()
         end
     end,
@@ -245,15 +260,17 @@ core:add_listener(
 )
 
 core:add_listener(
-    "tcs_Shooting_Phase",
+    tcs_battle:get_listener_name("shoot_phase"),
     "button_shoot_phase",
     true,
     function(context)
-        tcs:log("Shooting Phase started: ", __FILE__(), __LINE__(), __FUNC__())
+        tcs:log("Shooting Phase started: ");
 
         set_active_phase("button_shoot_phase")
 
         set_title_message("Shoot Phase")
+
+        tcs_battle:clear_all_unit_statuses()
 
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_shoot, tcs:get_config("ai_shoot_time") * 1000);
@@ -268,7 +285,7 @@ core:add_listener(
                         bm:remove_callback(callback_name)
                         core:trigger_custom_event("tcs_next_phase", {})
                     else
-                        tcs:log("AI units still shooting.", __FILE__(), __LINE__(), __FUNC__())
+                        tcs:log("AI units still shooting.");
                     end
                 end,
                 2000,
@@ -284,15 +301,17 @@ core:add_listener(
 )
 
 core:add_listener(
-    "tcs_Charge_Phase",
+    tcs_battle:get_listener_name("charge_phase"),
     "button_charge_phase",
     true,
     function(context)
-        tcs:log("Charge Phase started: ", __FILE__(), __LINE__(), __FUNC__())
+        tcs:log("Charge Phase started: ");
 
         set_active_phase("button_charge_phase")
 
         set_title_message("Charge Phase")
+
+        tcs_battle:clear_all_unit_statuses()
 
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_charge)
@@ -307,7 +326,7 @@ core:add_listener(
                         bm:remove_callback(callback_name);
                         core:trigger_custom_event("tcs_next_phase", {});
                     else
-                        tcs:log("AI units still charging.", __FILE__(), __LINE__(), __FUNC__())
+                        tcs:log("AI units still charging.");
                     end
                 end,
                 2000,
@@ -323,15 +342,17 @@ core:add_listener(
 )
 
 core:add_listener(
-    "tcs_Fight_Phase",
+    tcs_battle:get_listener_name("fight_phase"),
     "button_fight_phase",
     true,
     function(context)
-        tcs:log("Combat Phase started: ", __FILE__(), __LINE__(), __FUNC__())
+        tcs:log("Combat Phase started: ");
 
         set_active_phase("button_fight_phase")
 
         set_title_message("Fight Phase")
+
+        tcs_battle:clear_all_unit_statuses()
 
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_fight, tcs:get_config("ai_fight_time") * 1000);
@@ -347,7 +368,7 @@ core:add_listener(
                     enable_next_phase_button(true)
                     highlight_next_phase_button(3)
                 else
-                    tcs:log("AI units still fighting.", __FILE__(), __LINE__(), __FUNC__())
+                    tcs:log("AI units still fighting.");
                 end
             end
 
@@ -363,25 +384,86 @@ core:add_listener(
 )
 
 core:add_listener(
-    "tcs_target_tracker",
+    tcs_battle:get_listener_name("target_tracker"),
     "ComponentLClickUp",
     function(context)
         return context.string == "root"
     end,
     function()
         local battle_root = cco("CcoBattleRoot", 1);
-        if not battle_root:Call("CursorContextContext.UnitContext") then
+        local unit_context = battle_root:Call("CursorContextContext.UnitContext")
+        if not unit_context then
             return
         end
-        if battle_root:Call("CursorContextContext.UnitContext.IsPlayerUnit") then
+        if unit_context:Call("IsPlayerUnit") then
             return
         end
 
-        local enemy_sunits = bm:get_scriptunits_for_main_enemy_army_to_local_player()
-        tcs_battle.last_targeted_enemy_sunit = enemy_sunits:get_sunit_by_name(tostring(battle_root:Call(
-            "CursorContextContext.UnitContext.UniqueUiId")));
+        local enemy_sunits = get_enemy_scrunits_to_local_player()
+        local enemy_sunit = enemy_sunits:get_sunit_by_name(tostring(unit_context:Call("UniqueUiId")));
+        if not enemy_sunit then
+            local enemy_unit = get_unit_by_id(unit_context:Call("UniqueUiId"))
+            if not enemy_unit then
+                return
+            end
+            local scrunits = bm:get_scriptunits_for_army(enemy_unit:alliance_index(), enemy_unit:army_index())
+            enemy_sunit = script_unit:new(enemy_unit)
+            scrunits:add_sunits(enemy_sunit)
+        end
 
-        tcs:log("New last target: " .. tcs_battle.last_targeted_enemy_sunit.unit:unique_ui_id(), __FILE__(), __LINE__(), __FUNC__())
+        tcs_battle.last_targeted_enemy_sunit = enemy_sunit
+
+        tcs:log("New last target: " .. tcs_battle.last_targeted_enemy_sunit.unit:unique_ui_id());
     end,
     true
 )
+
+core:add_listener(
+    tcs_battle:get_listener_name("position_tracker"),
+    "ComponentLClickUp",
+    function(context)
+        return context.string == "root"
+    end,
+    function()
+        local cursor_vector = get_cursor_position()
+
+        if not cursor_vector then
+            return
+        end
+
+        tcs_battle.last_clicked_position = cursor_vector
+
+        tcs:log(string.format("New last click location: (%.2f,%.2f,%.2f)", tcs_battle.last_clicked_position:get_x(),
+            tcs_battle.last_clicked_position:get_y(), tcs_battle.last_clicked_position:get_z()))
+    end,
+    true
+)
+
+function summoned_unit_check()
+    local unit_cards_component = find_uicomponent(core:get_ui_root(), "hud_battle", "battle_orders", "battle_orders_pane",
+        "card_panel_docker", "cards_panel", "review_DY")
+
+    local current_count = tcs_battle.unit_cards_count
+
+    tcs_battle.unit_cards_count = unit_cards_component:ChildCount()
+    if not current_count or current_count >= unit_cards_component:ChildCount() then
+        return
+    end
+    for i = 0, unit_cards_component:ChildCount() - 1 do
+        local uic_child = UIComponent(unit_cards_component:Find(i))
+
+        local unit_uid = tonumber(uic_child:Id())
+        local scrunit = get_sunit_by_id(unit_uid)
+
+        if not scrunit then
+            local unit = get_unit_by_id(unit_uid)
+            if unit then
+                local scrunits = bm:get_scriptunits_for_army(unit:alliance_index(), unit:army_index())
+                local scrunit = script_unit:new(unit)
+                scrunits:add_sunits(scrunit)
+
+                setup_tcs_units(unit)
+            end
+        end
+    end
+end
