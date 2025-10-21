@@ -166,6 +166,23 @@ function set_unit_movement(unit)
     tcs_battle.unit_movement_range[unit:unique_ui_id()] = movement_range
 end
 
+function has_missile_spell(unit)
+    local unit_cco = tcs_get_battleunit_cco(unit:unique_ui_id())
+    if not unit_cco then
+        return false
+    end
+
+    for i = 1, unit_cco:Call("BattleAbilityList.Size") do
+        local ability_cco = unit_cco:Call("BattleAbilityList")[i]
+        if not table.contains(tcs_battle.unit_activations, ability_cco:Call("SetupAbilityContext.RecordKey")) and
+            ability_cco:Call("IsTargettedAbility") then
+            return true
+        end
+    end
+
+    return false
+end
+
 function has_unit_in_missile_range(scrunit)
     for _, enemy_scrunit in pairs(get_enemy_scrunits(scrunit):get_sunit_table()) do
         if scrunit.unit:unit_in_range(enemy_scrunit.unit) then
@@ -246,7 +263,7 @@ end
 
 function enable_unit_fight(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
-    if scrunit_is_engaged(scrunit) and not tcs_battle.unit_ran[unit:unique_ui_id()] and not tcs_battle.unit_retreated[unit:unique_ui_id()] then
+    if scrunit_is_engaged(scrunit) and not tcs_battle.unit_retreated[unit:unique_ui_id()] then
         scrunit.uc:reset_ability_number_of_uses("tcs_main_unit_active_fight")
         unit:disable_special_ability("tcs_main_unit_active_fight", false)
     end
@@ -303,6 +320,7 @@ function stop_scrunit(scrunit)
 end
 
 function stop_unit(unit)
+    -- TODO: stop_sound() use this to prevent the halt sound?
     local scrunit = bm:get_scriptunit_for_unit(unit)
     scrunit:take_control()
     scrunit:halt();
@@ -419,7 +437,8 @@ function get_enemy_scrunits(scrunit, match_y_axis)
     local scrunits = script_units:new("enemy_scrunits")
 
     for army = 1, bm:alliances():item(get_next_alliance_index(scrunit.unit:alliance_index())):armies():count() do
-        local battle_army = bm:alliances():item(get_next_alliance_index(scrunit.unit:alliance_index())):armies():item(army)
+        local battle_army = bm:alliances():item(get_next_alliance_index(scrunit.unit:alliance_index())):armies():item(
+        army)
         for unit_id = 1, battle_army:units():count() do
             local unit = battle_army:units():item(unit_id);
             if unit:number_of_men_alive() > 0 then
@@ -589,8 +608,7 @@ function perform_next_phase()
 end
 
 function mapf_to_first_unit_context(func, ability)
-    local unit_cco = cco("CcoBattleSelection", 1):Call("FirstUnitContext")
-    local scrunit = get_sunit_by_id(unit_cco:Call("UniqueUiId"))
+    local scrunit = get_first_selected_unit('sunit')
 
     if not scrunit then
         return
@@ -615,6 +633,19 @@ function mapf_to_selected_units(func, time, ability)
             local battle_ability = get_unit_battle_ability_cco(unit, ability)
             if battle_ability and battle_ability:Call("CurrentState") == "selected" then
                 func(unit, time);
+            end
+        end
+    end
+end
+
+function mapf_to_local_player_scrunits(func)
+    local time = time or nil;
+    for army = 1, bm:alliances():item(bm:local_alliance()):armies():count() do
+        local battle_army = bm:alliances():item(bm:local_alliance()):armies():item(army)
+        for unit_id = 1, battle_army:units():count() do
+            local scrunit = get_sunit_by_id(battle_army:units():item(unit_id):unique_ui_id())
+            if scrunit.unit:number_of_men_alive() > 0 then
+                func(scrunit, time)
             end
         end
     end
@@ -667,6 +698,11 @@ function mapf_to_ai_units(func, time)
 end
 
 function mapf_to_all_units(func, time)
+    if bm:is_multiplayer() then
+        mapf_to_local_player_units(func, time)
+        return
+    end
+
     local time = time or nil;
     for alliance = 1, bm:alliances():count() do
         local army_alliance = bm:alliances():item(alliance);
@@ -683,6 +719,10 @@ function mapf_to_all_units(func, time)
 end
 
 function mapf_to_all_scrunits(func)
+    if bm:is_multiplayer() then
+        mapf_to_local_player_scrunits(func)
+        return
+    end
     for alliance = 1, bm:alliances():count() do
         local army_alliance = bm:alliances():item(alliance);
         for army = 1, army_alliance:armies():count() do
@@ -780,6 +820,15 @@ local function switch(x, cases)
     return match()
 end
 
+function unit_entity_count(unit)
+    local unit_cco = tcs_get_battleunit_cco(unit:unique_ui_id())
+    if not unit_cco then
+        return nil
+    end
+
+    return unit_cco:Call("EntityList.Size")
+end
+
 function tcs_get_battleunit_cco(unit_uid)
     local battle_root_cco = cco("CcoBattleRoot", 1);
     local unit_list = battle_root_cco:Call("UnitList");
@@ -792,7 +841,11 @@ function tcs_get_battleunit_cco(unit_uid)
 end
 
 function get_selected_unit_ability_cco(ability_record)
-    local unit_cco = cco("CcoBattleSelection", 1):Call("FirstUnitContext")
+    local unit_cco = get_first_selected_unit('cco')
+
+    if not unit_cco then
+        return
+    end
 
     for i = 1, unit_cco:Call("AbilityList.Size") do
         if unit_cco:Call("AbilityList")[i]:Call("RecordKey") == ability_record then
@@ -852,6 +905,7 @@ function terminate_tcs()
     mapf_to_all_units(disable_tcs_passives)
     mapf_to_all_units(disable_tcs_actives)
     mapf_to_all_units(enable_melee_attacks)
+    mapf_to_all_units(enable_morale)
 
     bm:unregister_command_handler_callback("Special Ability", "tcs_special_ability_handler")
     bm:unregister_unit_selection_handler()
@@ -905,6 +959,7 @@ function setup_tcs_units(unit)
             mapf_to_all_units(disable_formed_attack)
         end
     else
+        disable_tcs_actives(unit)
         disable_non_passives(unit);
         disable_fire_at_will(unit);
         disable_melee_attacks(unit);
@@ -1016,10 +1071,14 @@ function battle_deployment_test_scripts_here()
     setup_phase_controls()
     set_active_crest()
 
-    if tcs_battle.active_player_alliance_index == bm:local_alliance() then
-        set_title_message("You Go First")
+    if tcs:get_config("simultaneous_turns") then
+        set_title_message("Simultaneous Turns")
     else
-        set_title_message("You Go Second")
+        if tcs_battle.active_player_alliance_index == bm:local_alliance() then
+            set_title_message("You Go First")
+        else
+            set_title_message("You Go Second")
+        end
     end
 end;
 
@@ -1045,9 +1104,14 @@ function battle_conflict_test_scripts_here()
         1000,
         tcs_battle.real_callback_names["unit_dies"]
     )
-    
+
     bm:repeat_real_callback(
         summoned_unit_check,
+        1000,
+        tcs_battle.real_callback_names["unit_summoned"]
+    )
+    bm:repeat_real_callback(
+        enemy_summoned_unit_check,
         1000,
         tcs_battle.real_callback_names["unit_summoned"]
     )

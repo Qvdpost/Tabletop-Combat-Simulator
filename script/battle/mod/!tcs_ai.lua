@@ -167,41 +167,7 @@ function ai_stopshoot_unit(unit)
     tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") is done shooting.");
 end
 
-local function ai_check_slow_projectile(unit, unit_cco, iteration)
-    if unit_cco:Call("DamageInflictedRecently") == 0 and iteration < 20 then
-        tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") still shooting iteration: " .. iteration);
-        bm:callback(
-            function()
-                ai_check_slow_projectile(unit, unit_cco, iteration + 1)
-            end,
-            2000
-        )
-    else
-        tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") has dealt damage recently.");
-        ai_stopshoot_unit(unit)
-    end
-end
-
-function ai_check_stopshoot_unit(unit, time)
-    local battle_unit_cco = tcs_get_battleunit_cco(unit:unique_ui_id())
-
-    local callback_name = tcs_battle.unit_callback_names["stopshoot"] .. unit:unique_ui_id()
-
-    if battle_unit_cco and (battle_unit_cco:Call("DamageInflictedRecently") == 0 and battle_unit_cco:Call("IsFiringMissiles")) then
-        tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") has dealt no damage yet.");
-        bm:callback(
-            function()
-                ai_check_slow_projectile(unit, battle_unit_cco, 1)
-            end,
-            2000,
-            callback_name
-        )
-    else
-        ai_stopshoot_unit(unit)
-    end
-end;
-
-local function reload_remaining_time(unit_cco)
+function reload_remaining_time(unit_cco)
     local reload_time = 0
     local entity_list = unit_cco:Call("EntityList")
     for i = 1, unit_cco:Call("EntityList.Size") do
@@ -222,6 +188,11 @@ function ai_unit_shoot(unit, time)
         return
     end
 
+    if not get_unit_missile_range(unit) then
+        tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") has no missile weapon.");
+        return
+    end
+
     local reload_time = reload_remaining_time(unit_cco)
     if reload_time > 1 then
         tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") still reloading : " .. reload_time);
@@ -236,13 +207,7 @@ function ai_unit_shoot(unit, time)
     end
 
     unit:disable_special_ability("tcs_main_unit_passive_inactive_shooting", true)
-
-    bm:callback(
-        function()
-            unit:disable_special_ability("tcs_ai_unit_passive_ranged_fix", false)
-        end,
-        500
-    )
+    unit:disable_special_ability("tcs_ai_unit_passive_ranged_fix", false)
 
     enable_melee_attacks(unit)
 
@@ -254,22 +219,33 @@ function ai_unit_shoot(unit, time)
 
     tcs_battle.ai_actively_shooting[unit:unique_ui_id()] = true
 
+    bm:callback(
+        function()
+            if not has_unit_in_missile_range(scrunit) then
+                tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") has no target in range.");
+                ai_stopshoot_unit(unit)
+                return
+            end
+        end,
+        500,
+        callback_name
+    )
+
 
     bm:callback(
         function()
-            local unit_cco = tcs_get_battleunit_cco(unit:unique_ui_id())
-            if unit_cco and not unit_cco:Call("IsFiringMissiles") then
-                tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") is not shooting.");
+            if not unit:current_target() then
+                tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") is not targetting anything.");
                 bm:remove_callback(callback_name);
                 ai_stopshoot_unit(unit)
             end
         end,
-        2000
+        5000,
+        callback_name
     )
 
     bm:callback(
         function()
-            -- ai_check_stopshoot_unit(unit, time)
             ai_stopshoot_unit(unit)
         end,
         time,

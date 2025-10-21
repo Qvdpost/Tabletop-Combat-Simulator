@@ -116,7 +116,7 @@ core:add_listener(
             return
         end
 
-        if tcs_battle.current_phase == "button_fight_phase" then
+        if tcs_battle.current_phase == "button_fight_phase" or tcs:get_config("simultaneous_turns") then
             if tcs_battle.active_player_alliance_index == bm:local_alliance() and is_enabled_next_phase_button() then
                 -- 1. Local player turn and next phase button enabled -> pass priority
                 enable_next_phase_button(false)
@@ -158,22 +158,33 @@ core:add_listener(
         tcs_battle.unit_ran = {};
         tcs_battle.unit_retreated = {};
 
-        mapf_to_active_player_units(enable_morale)
+        if tcs:get_config("simultaneous_turns") then
+            mapf_to_all_units(enable_morale)
+        else
+            mapf_to_active_player_units(enable_morale)
+        end
 
         local morale_delay = 5000
         battleshock_tickdown(morale_delay / 1000)
 
         bm:callback(
             function()
-                mapf_to_active_player_units(unit_break, tcs:get_config("unit_break_duration") * 1000)
-
+                if tcs:get_config("simultaneous_turns") then
+                    mapf_to_all_units(unit_break, tcs:get_config("unit_break_duration") * 1000)
+                else
+                    mapf_to_active_player_units(unit_break, tcs:get_config("unit_break_duration") * 1000)
+                end
                 bm:callback(
                     function()
                         set_active_crest()
 
                         set_title_message("Hero Phase")
 
-                        mapf_to_active_player_units(disable_spell_effects)
+                        if tcs:get_config("simultaneous_turns") then
+                            mapf_to_all_units(disable_spell_effects)
+                        else
+                            mapf_to_active_player_units(disable_spell_effects)
+                        end
 
                         local battleshock_delay = 500
                         if next(tcs_battle.unit_retreated) then
@@ -197,7 +208,12 @@ core:add_listener(
 
                             bm:callback(
                                 function()
-                                    core:trigger_custom_event("tcs_next_phase", {})
+                                    if tcs:get_config("simultaneous_turns") then
+                                        enable_next_phase_button(true)
+                                        highlight_next_phase_button(3)
+                                    else
+                                        core:trigger_custom_event("tcs_next_phase", {});
+                                    end
                                 end,
                                 math.max(battleshock_delay, ai_hero_time),
                                 "tcs_ai_hero_phase"
@@ -220,6 +236,8 @@ core:add_listener(
     function(context)
         tcs:log("Move Phase started: ");
 
+        enable_next_phase_button((bm:local_alliance() == tcs_battle.active_player_alliance_index))
+
         set_active_phase("button_move_phase")
 
         set_title_message("Move Phase")
@@ -228,8 +246,17 @@ core:add_listener(
 
         tcs_battle.unit_movement_warned = {}
 
+        mapf_to_all_units(disable_unit_activations)
+
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_move, tcs:get_config("ai_move_time") * 1000);
+
+            if tcs:get_config("simultaneous_turns") then
+                mapf_to_all_units(enable_unit_move)
+                mapf_to_all_units(enable_unit_run)
+                mapf_to_all_units(enable_unit_retreat)
+                mapf_to_all_units(enable_unit_reform)
+            end
 
             local callback_name = "stopmove_phase_ai";
 
@@ -239,7 +266,12 @@ core:add_listener(
                 function()
                     if not next(tcs_battle.ai_actively_moving) then
                         bm:remove_callback(callback_name);
-                        core:trigger_custom_event("tcs_next_phase", {});
+                        if tcs:get_config("simultaneous_turns") then
+                            enable_next_phase_button(true)
+                            highlight_next_phase_button(3)
+                        else
+                            core:trigger_custom_event("tcs_next_phase", {});
+                        end
                     else
                         tcs:log("AI units still moving.");
                     end
@@ -248,11 +280,17 @@ core:add_listener(
                 callback_name
             )
         else
-            mapf_to_all_units(disable_unit_activations)
-            mapf_to_active_player_units(enable_unit_move)
-            mapf_to_active_player_units(enable_unit_run)
-            mapf_to_active_player_units(enable_unit_retreat)
-            mapf_to_active_player_units(enable_unit_reform)
+            if tcs:get_config("simultaneous_turns") then
+                mapf_to_all_units(enable_unit_move)
+                mapf_to_all_units(enable_unit_run)
+                mapf_to_all_units(enable_unit_retreat)
+                mapf_to_all_units(enable_unit_reform)
+            else
+                mapf_to_active_player_units(enable_unit_move)
+                mapf_to_active_player_units(enable_unit_run)
+                mapf_to_active_player_units(enable_unit_retreat)
+                mapf_to_active_player_units(enable_unit_reform)
+            end
             reselect_units()
         end
     end,
@@ -266,14 +304,22 @@ core:add_listener(
     function(context)
         tcs:log("Shooting Phase started: ");
 
+        enable_next_phase_button((bm:local_alliance() == tcs_battle.active_player_alliance_index))
+
         set_active_phase("button_shoot_phase")
 
         set_title_message("Shoot Phase")
 
         tcs_battle:clear_all_unit_statuses()
 
+        mapf_to_all_units(disable_unit_activations)
+
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_shoot, tcs:get_config("ai_shoot_time") * 1000);
+
+            if tcs:get_config("simultaneous_turns") then
+                mapf_to_all_units(enable_unit_shoot)
+            end
 
             local callback_name = "stopshoot_phase"
 
@@ -283,7 +329,12 @@ core:add_listener(
                 function()
                     if next(tcs_battle.ai_actively_shooting) == nil then
                         bm:remove_callback(callback_name)
-                        core:trigger_custom_event("tcs_next_phase", {})
+                        if tcs:get_config("simultaneous_turns") then
+                            enable_next_phase_button(true)
+                            highlight_next_phase_button(3)
+                        else
+                            core:trigger_custom_event("tcs_next_phase", {});
+                        end
                     else
                         tcs:log("AI units still shooting.");
                     end
@@ -292,8 +343,12 @@ core:add_listener(
                 callback_name
             )
         else
-            mapf_to_all_units(disable_unit_activations)
-            mapf_to_active_player_units(enable_unit_shoot)
+            if tcs:get_config("simultaneous_turns") then
+                mapf_to_all_units(enable_unit_shoot)
+            else
+                mapf_to_active_player_units(enable_unit_shoot)
+            end
+
             reselect_units()
         end
     end,
@@ -307,14 +362,22 @@ core:add_listener(
     function(context)
         tcs:log("Charge Phase started: ");
 
+        enable_next_phase_button((bm:local_alliance() == tcs_battle.active_player_alliance_index))
+
         set_active_phase("button_charge_phase")
 
         set_title_message("Charge Phase")
 
         tcs_battle:clear_all_unit_statuses()
 
+        mapf_to_all_units(disable_unit_activations)
+
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_charge)
+
+            if tcs:get_config("simultaneous_turns") then
+                mapf_to_all_units(enable_unit_charge)
+            end
 
             local callback_name = "stopcharge_phase_ai";
 
@@ -324,7 +387,12 @@ core:add_listener(
                 function()
                     if next(tcs_battle.ai_actively_charging) == nil then
                         bm:remove_callback(callback_name);
-                        core:trigger_custom_event("tcs_next_phase", {});
+                        if tcs:get_config("simultaneous_turns") then
+                            enable_next_phase_button(true)
+                            highlight_next_phase_button(3)
+                        else
+                            core:trigger_custom_event("tcs_next_phase", {});
+                        end
                     else
                         tcs:log("AI units still charging.");
                     end
@@ -333,8 +401,11 @@ core:add_listener(
                 callback_name
             )
         else
-            mapf_to_all_units(disable_unit_activations)
-            mapf_to_active_player_units(enable_unit_charge)
+            if tcs:get_config("simultaneous_turns") then
+                mapf_to_all_units(enable_unit_charge)
+            else
+                mapf_to_active_player_units(enable_unit_charge)
+            end
             reselect_units()
         end
     end,
@@ -348,11 +419,15 @@ core:add_listener(
     function(context)
         tcs:log("Combat Phase started: ");
 
+        enable_next_phase_button((bm:local_alliance() == tcs_battle.active_player_alliance_index))
+
         set_active_phase("button_fight_phase")
 
         set_title_message("Fight Phase")
 
         tcs_battle:clear_all_unit_statuses()
+
+        mapf_to_all_units(disable_unit_activations)
 
         if not (active_player_alliance():armies():item(1):is_player_controlled()) then
             mapf_to_ai_units(ai_unit_fight, tcs:get_config("ai_fight_time") * 1000);
@@ -374,7 +449,6 @@ core:add_listener(
 
             bm:repeat_callback(stopcombat_phase, 2000, callback_name)
         else
-            mapf_to_all_units(disable_unit_activations)
             mapf_to_all_units(enable_unit_fight)
             mapf_to_ai_units(ai_unit_fight, tcs:get_config("ai_fight_time") * 1000)
             reselect_units()
@@ -459,11 +533,43 @@ function summoned_unit_check()
             local unit = get_unit_by_id(unit_uid)
             if unit then
                 local scrunits = bm:get_scriptunits_for_army(unit:alliance_index(), unit:army_index())
-                local scrunit = script_unit:new(unit)
+                local scrunit = script_unit:new(unit, tostring(unit:unique_ui_id()))
                 scrunits:add_sunits(scrunit)
 
                 setup_tcs_units(unit)
             end
         end
     end
+end
+
+function enemy_summoned_unit_check()
+    local current_count = 0
+
+    for army_id = 1, bm:alliances():item(get_next_alliance_index(bm:local_alliance())):armies():count() do
+        local battle_army = bm:alliances():item(get_next_alliance_index(bm:local_alliance())):armies():item(army_id)
+
+        current_count = current_count + battle_army:units():count()
+    end
+
+    if current_count == tcs_battle.enemy_unit_count then
+        return
+    end
+
+    for army_id = 1, bm:alliances():item(get_next_alliance_index(bm:local_alliance())):armies():count() do
+        local battle_army = bm:alliances():item(get_next_alliance_index(bm:local_alliance())):armies():item(army_id)
+
+        local scrunits = bm:get_scriptunits_for_army(get_next_alliance_index(bm:local_alliance()), army_id)
+        for unit_id = 1, battle_army:units():count() do
+            local unit = battle_army:units():item(unit_id);
+            local script_unit = get_sunit_by_id(unit:unique_ui_id())
+            if not script_unit then
+                local scrunit = script_unit:new(unit, tostring(unit:unique_ui_id()))
+                scrunits:add_sunits(scrunit)
+
+                setup_tcs_units(unit)
+            end
+        end
+    end
+
+    tcs_battle.enemy_unit_count = current_count
 end

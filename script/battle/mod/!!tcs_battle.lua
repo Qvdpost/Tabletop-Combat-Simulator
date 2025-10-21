@@ -23,6 +23,7 @@ local tcs_battle = {
 
     unit_should_land = {},
     unit_cards_count = 0,
+    enemy_unit_count = 0,
 
     active_units = {},
     unit_ran = {},

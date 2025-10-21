@@ -28,7 +28,7 @@ mct_move_option:set_tooltip_text("The distance a unit with the lowest speed coul
 mct_move_option:set_is_global(true)
 
 local mct_move_option = mct_mod:add_new_option("max_run_distance", "slider")
-mct_move_option:set_text("Run Activation maximum range.")
+mct_move_option:set_text("Run Activation maximum additional distance")
 mct_move_option:slider_set_min_max(0, 300)
 mct_move_option:slider_set_step_size(1)
 mct_move_option:set_default_value(60)
@@ -36,11 +36,11 @@ mct_move_option:set_tooltip_text("The maximum distance a unit can add to their m
 mct_move_option:set_is_global(true)
 
 local mct_move_option = mct_mod:add_new_option("unit_reform_cost", "slider")
-mct_move_option:set_text("Reform Activation movement cost.")
+mct_move_option:set_text("Wheel Activation movement cost.")
 mct_move_option:slider_set_min_max(0, 300)
 mct_move_option:slider_set_step_size(1)
 mct_move_option:set_default_value(15)
-mct_move_option:set_tooltip_text("The cost incurred to the movement distance of a unit for reforming their ranks and bearing.");
+mct_move_option:set_tooltip_text("The cost incurred to the movement distance of a unit for wheeling about their axis. This cost is paid per 15 degrees of turning.");
 mct_move_option:set_is_global(true)
 
 local mct_fight_option = mct_mod:add_new_option("fight_time", "slider")
@@ -135,7 +135,7 @@ option_tcs_engagement_warning_enabled:set_is_global(true)
 local mct_engagement_range_buffer_option = mct_mod:add_new_option("warn_about_engagement_range_distance", "slider")
 mct_engagement_range_buffer_option:set_text("Engagement Range Buffer")
 mct_engagement_range_buffer_option:slider_set_min_max(10, 60)
-mct_engagement_range_buffer_option:set_tooltip_text("The distance to an opponent unit's engagement range that you want to receive an intervention at.");
+mct_engagement_range_buffer_option:set_tooltip_text("The distance to an opponent unit's engagement range that you want to receive a one time warning per unit at.");
 mct_engagement_range_buffer_option:slider_set_step_size(1)
 mct_engagement_range_buffer_option:set_default_value(15)
 mct_engagement_range_buffer_option:set_is_global(true)
@@ -158,3 +158,8 @@ mct_ai_controls_option:set_tooltip_text("Allows the player to perform Activation
 mct_ai_controls_option:set_default_value(false);
 mct_ai_controls_option:set_is_global(true)
 
+local mct_ai_controls_option = mct_mod:add_new_option("simultaneous_turns", "checkbox")
+mct_ai_controls_option:set_text("Simultaneous Turns")
+mct_ai_controls_option:set_tooltip_text("Allows the both players to perform Activations during each phase.");
+mct_ai_controls_option:set_default_value(false);
+mct_ai_controls_option:set_is_global(true)

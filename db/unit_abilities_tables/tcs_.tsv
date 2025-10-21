@@ -3,7 +3,7 @@ key	requires_effect_enabling	icon_name	overpower_option	type	video	uniqueness	is
 tcs_main_unit_passive_inactive_fighting	false	upgrade_weapon_bronze		wh_type_augment		wh_main_anc_group_common	false	false	passive		false
 tcs_main_unit_passive_stationary	false	cant_run		wh_type_augment		wh_main_anc_group_common	false	false	passive		false
 tcs_main_unit_passive_inactive_shooting	false	upgrade_missile_bronze		wh_type_augment		wh_main_anc_group_common	false	false	passive		false
-tcs_main_unit_active_move	false	fatigue_immune		wh_type_augment		wh_main_anc_group_common	false	false	active		false
+tcs_main_unit_active_move	false	redeploy		wh_type_augment		wh_main_anc_group_common	false	false	active		false
 tcs_main_unit_active_fight	false	wh_magic_item_passive_weapon		wh_type_augment		wh_main_anc_group_common	false	false	active		false
 tcs_main_unit_active_shoot	false	fire_at_will		wh_type_augment		wh_main_anc_group_common	false	false	active		false
 tcs_army_ai_move	false	fatigue_immune		wh_type_chain_augment		wh_main_anc_group_common	false	false	army		false
@@ -17,5 +17,5 @@ tcs_unit_engage_range	false	can_block_missiles_360		wh_type_augment		wh_main_anc
 tcs_main_unit_active_retreat	false	wh_main_unit_contact_morale		wh_type_augment		wh_main_anc_group_common	false	false	active		false
 tcs_next_phase	false	placeholder		wh_type_augment		wh_main_anc_group_common	false	true	active		false
 tcs_main_unit_active_run	false	fatigue_restore		wh_type_augment		wh_main_anc_group_common	false	false	active		false
-tcs_main_unit_active_reform	false	placeholder		wh_type_augment		wh_main_anc_group_common	false	false	active		false
+tcs_main_unit_active_reform	false	icon_formation		wh_type_augment		wh_main_anc_group_common	false	false	active		false
 tcs_terminate_simulation	false	placeholder		wh_type_augment		wh_main_anc_group_common	false	false	active		false

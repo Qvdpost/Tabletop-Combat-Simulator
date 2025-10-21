@@ -16,6 +16,8 @@ function freeze_unit(unit)
 
     stop_scrunit(scrunit)
 
+    reselect_unit(unit)
+
     tcs_battle.unit_actively_moving[unit:unique_ui_id()] = nil
     tcs_battle:clear_unit_status(unit:unique_ui_id())
     tcs:log("Unit(" .. unit:unique_ui_id() .. ") can no longer move.");
@@ -89,40 +91,21 @@ function unit_move(unit)
 
     if destination_distance > tcs_battle.unit_movement_range[scrunit.unit:unique_ui_id()] then
         tcs:log("Distance (" .. destination_distance .. ") too far to move");
-        tcs_battle:set_unit_status(unit:unique_ui_id(),
-            string.format("idle.\nCan't reach %d metres.", destination_distance))
-        bm:callback(
-            function()
-                tcs_battle:clear_unit_status(unit:unique_ui_id())
-            end,
-            3000
-        )
+        flash_unit_status(unit, string.format("idle.\nCan't reach %d metres.", destination_distance), 5000)
         enable_unit_move(unit)
         return
     end
 
     if not unit:can_reach_position(destination) then
         tcs:log("Can't move to destination; unreachable.");
-        tcs_battle:set_unit_status(unit:unique_ui_id(), "idle.\nCan't reach destination.")
-        bm:callback(
-            function()
-                tcs_battle:clear_unit_status(unit:unique_ui_id())
-            end,
-            3000
-        )
+        flash_unit_status(unit, "idle.\nCan't reach destination.", 5000)
         enable_unit_move(unit)
         return
     end
 
     if position_in_range(scrunit, destination, tcs_battle.engagement_distance, scrunit.unit:is_currently_flying()) then
         tcs:log("Can't move to destination; it is within engagement range.");
-        tcs_battle:set_unit_status(unit:unique_ui_id(), "idle\nDestination is within engagement range.")
-        bm:callback(
-            function()
-                tcs_battle:clear_unit_status(unit:unique_ui_id())
-            end,
-            3000
-        )
+        flash_unit_status(unit, "idle\nDestination is within engagement range.", 5000)
         enable_unit_move(unit)
         return
     end
@@ -131,31 +114,30 @@ function unit_move(unit)
     tcs_battle.unit_actively_moving[unit:unique_ui_id()] = true
 
     scrunit:take_control()
+    reselect_unit(unit)
 
     local unit_bearing = r_to_d(get_bearing(scrunit.unit:position(), destination))
     local unit_width = scrunit.unit:ordered_width()
 
-    tcs_battle:set_unit_status(unit:unique_ui_id(), "moving.")
+    flash_unit_status(unit, "moving.")
+
     tcs:log("Unit(" .. unit:unique_ui_id() .. ") can move.");
+
 
     tcs_battle.unit_movement_range[scrunit.unit:unique_ui_id()] = tcs_battle.unit_movement_range
         [scrunit.unit:unique_ui_id()] - destination_distance
 
     bm:repeat_callback(
         function()
-            if unit_entities_in_range(unit, unit:ordered_position(), 5) then
+            -- if unit_entities_in_range(unit, unit:ordered_position(), 5) then
+            if not unit:is_moving() then
                 bm:remove_callback(callback_name)
-                bm:callback(
-                    function()
-                        freeze_unit(unit)
-                    end,
-                    3000
-                )
+                freeze_unit(unit)
                 return
             end
             tcs:log("Unit(" ..
                 unit:unique_ui_id() ..
-                ") distance to target: " .. get_unit_to_position_distance(unit, destination))
+                ") distance to target: " .. get_unit_to_position_distance(unit, unit:ordered_position()))
         end,
         1000,
         callback_name
@@ -201,16 +183,16 @@ function unit_move(unit)
 end
 
 function unit_run(unit)
-    if tcs_battle.unit_actively_moving[unit:unique_ui_id()] then
+    if tcs_battle.unit_ran[unit:unique_ui_id()] then
         return
     end
+    tcs_battle.unit_ran[unit:unique_ui_id()] = true
 
     local extra_distance = ((roll_dice(tcs:get_config("default_run_dice"), tcs:get_config("default_dice_eyes")) / tcs:get_config("default_dice_eyes")) * tcs:get_config("max_run_distance"))
 
     tcs_battle.unit_movement_range[unit:unique_ui_id()] = tcs_battle.unit_movement_range[unit:unique_ui_id()] +
         extra_distance
-
-    tcs_battle.unit_ran[unit:unique_ui_id()] = true
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") running for " .. extra_distance .. " extra movement range.")
 end
 
 function stopfight_unit(unit)
@@ -234,9 +216,10 @@ function unit_fight(unit, time)
         return
     end
 
-    enable_melee_attacks(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
     scrunit:set_melee_mode(true, true)
+    scrunit:take_control()
+    enable_melee_attacks(unit)
 
     local attack_target = tcs_battle.last_targeted_enemy_sunit.unit
 
@@ -255,8 +238,8 @@ function unit_fight(unit, time)
         tcs:log("Blocking attack; target is too far away");
         enable_unit_fight(unit)
         stopfight_unit(unit)
-        tcs_battle:set_unit_status(unit:unique_ui_id(),
-            string.format("idle.\nCombat target out of range (%d).", target_distance))
+
+        flash_unit_status(unit, string.format("idle.\nCombat target out of range (%d).", target_distance), 5000)
         return
     end
 
@@ -275,8 +258,10 @@ function unit_fight(unit, time)
 
     unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", true)
     tcs_battle.unit_actively_fighting[unit:unique_ui_id()] = true
-    tcs_battle:set_unit_status(unit:unique_ui_id(), "fighting", time / 1000)
+    tickdown_unit_status(unit, "fighting", time / 1000, callback_name)
     tcs:log("Unit(" .. unit:unique_ui_id() .. ") can fight.");
+
+    reselect_unit(unit)
 
     bm:callback(
         function()
@@ -306,8 +291,6 @@ function unit_fight(unit, time)
         1000,
         start_fight_callback_name
     )
-
-    bm:repeat_callback(function() decrease_unit_status_time(unit:unique_ui_id()) end, 1000, callback_name)
 end
 
 function stopshoot_unit(unit)
@@ -346,25 +329,38 @@ function unit_shoot(unit, time)
 
     local unit_missile_range = get_unit_missile_range(unit)
 
-    if not unit_missile_range then
-        tcs:log("Blocking shoot; unit has no missile range.");
+    if not unit_missile_range and not has_missile_spell(unit) then
+        tcs:log("Blocking shoot; unit has no missile range or targeted spell.");
         stopshoot_unit(unit)
-        tcs_battle:set_unit_status(unit:unique_ui_id(),
-            string.format("idle.\nUnit has no missile weapon!"))
+        flash_unit_status(unit, "idle.\nUnit has no missile weapon!", 5000)
+        return
+    end
+
+    if not unit_missile_range and has_missile_spell(unit) then
+        unit:disable_special_ability("tcs_main_unit_passive_inactive_shooting", true)
+        tcs_battle.unit_actively_shooting[unit:unique_ui_id()] = true
+
+        tickdown_unit_status(unit, "casting a spell", time / 1000, callback_name)
+
+        tcs:log("Unit(" .. unit:unique_ui_id() .. ") can cast targetted spells.");
+        bm:callback(
+            function()
+                stopshoot_unit(unit)
+            end,
+            time,
+            callback_name
+        )
         return
     end
 
     local target_distance = unit:unit_distance(attack_target)
     tcs:log("Target distance: " .. target_distance);
 
-
-
     if target_distance > unit_missile_range then
         tcs:log("Blocking shoot; target is too far away");
         enable_unit_shoot(unit)
         stopshoot_unit(unit)
-        tcs_battle:set_unit_status(unit:unique_ui_id(),
-            string.format("idle.\nTarget out of missile range (%d/%d).", target_distance, unit_missile_range))
+        flash_unit_status(unit, string.format("idle.\nTarget out of missile range (%d/%d).", target_distance, unit_missile_range), 5000)
         return
     end
 
@@ -386,16 +382,8 @@ function unit_shoot(unit, time)
     scrunit:take_control()
 
     tcs_battle.unit_actively_shooting[unit:unique_ui_id()] = true
-    tcs_battle:set_unit_status(unit:unique_ui_id(), "shooting", time / 1000)
+    tickdown_unit_status(unit, "shooting", time / 1000, callback_name)
     tcs:log("Unit(" .. unit:unique_ui_id() .. ") can shoot.");
-
-    bm:repeat_callback(
-        function()
-            decrease_unit_status_time(unit:unique_ui_id())
-        end,
-        1000,
-        callback_name
-    )
 
     bm:callback(
         function()
@@ -473,8 +461,9 @@ function stopcharge_unit(unit, charge_target, overcharge_time, callback_name)
         )
         return
     end
-
-    scrunit.uc:attack_unit(charge_target, true, true)
+    if not unit:is_moving() then
+        scrunit.uc:attack_unit(charge_target, true, true)
+    end
     tcs:log("Unit (" .. unit:unique_ui_id() .. ") not yet in melee.");
 end
 
@@ -503,8 +492,7 @@ function unit_charge(unit)
         tcs:log("Blocking charge; target is too far away");
         enable_unit_charge(unit)
         unit_end_charge(unit)
-        tcs_battle:set_unit_status(unit:unique_ui_id(),
-            string.format("idle.\nCharge target out of range (%d).", charge_distance))
+        flash_unit_status(unit, string.format("idle.\nCharge target out of range (%d).", charge_distance), 5000)
         return
     end
 
@@ -514,8 +502,7 @@ function unit_charge(unit)
     if not (diceroll >= normalised_charge_distance) then
         tcs:log("Blocking charge; the roll failed: " .. diceroll .. " / " .. normalised_charge_distance);
         unit_end_charge(unit)
-        tcs_battle:set_unit_status(unit:unique_ui_id(),
-            string.format("idle.\nCharge failed (%d/%.2f)", diceroll, normalised_charge_distance))
+        flash_unit_status(unit, string.format("idle.\nCharge failed (%d/%.2f)", diceroll, normalised_charge_distance), 15000)
         return
     end
 
@@ -532,13 +519,13 @@ function unit_charge(unit)
 
     scrunit:play_sound_charge()
     scrunit:take_control()
+    reselect_unit(unit)
 
     unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
     unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", true)
 
     tcs_battle.unit_actively_charging[unit:unique_ui_id()] = true
-    tcs_battle:set_unit_status(unit:unique_ui_id(),
-        string.format("charging (%d/%.2f)", diceroll, normalised_charge_distance))
+    flash_unit_status(unit, string.format("charging (%d/%.2f)", diceroll, normalised_charge_distance))
     tcs:log("Unit(" .. unit:unique_ui_id() .. ") charging now.");
 
     bm:repeat_callback(
@@ -580,6 +567,7 @@ function stopretreat_unit(unit)
 
     if scrunit_is_engaged(scrunit) then
         tcs:log("Unit(" .. unit:unique_ui_id() .. ") still engaged.");
+        scrunit:take_control()
         scrunit:withdraw(true)
         bm:callback(
             function()
@@ -619,7 +607,8 @@ function unit_retreat(unit, time)
 
     tcs_battle.unit_actively_retreating[unit:unique_ui_id()] = true
     tcs_battle.unit_retreated[unit:unique_ui_id()] = true
-    tcs_battle:set_unit_status(unit:unique_ui_id(), "retreating.")
+    flash_unit_status(unit, "retreating.")
+
     tcs:log("Unit(" .. unit:unique_ui_id() .. ") is retreating.");
 end
 
@@ -644,11 +633,11 @@ function unit_break(unit, time)
 
     if unit_cco:Call("MoralePercent") < (tcs:get_config("unit_break_point") / 100) then
         local unit_details_cco = unit_cco:Call("UnitDetailsContext")
-        local unit_base_leadership = unit_details_cco:Call("BaseStatValueFromKey('stat_morale')")
+        local unit_leadership = unit_details_cco:Call("StatContextFromKey('stat_morale').Value")
 
         local diceroll = roll_dice(tcs:get_config("break_test_dice"), tcs:get_config("default_dice_eyes"))
 
-        local breakpoint = normalise_to_range(unit_base_leadership, 100, tcs:get_config("break_test_dice"),
+        local breakpoint = normalise_to_range(unit_leadership, 100, tcs:get_config("break_test_dice"),
             tcs:get_config("default_dice_eyes"))
 
         tcs:log("Unit(" .. unit:unique_ui_id() .. ") rolled for breaking: " .. diceroll .. "/" .. breakpoint);
@@ -671,7 +660,7 @@ function unit_break(unit, time)
     disable_morale(unit)
 end
 
-function unit_reform(unit)
+function unit_reform_old(unit)
     if tcs_battle.unit_actively_moving[unit:unique_ui_id()] then
         return
     end
@@ -687,37 +676,19 @@ function unit_reform(unit)
 
     if destination_distance > 1 then
         tcs:log("Distance (" .. destination_distance .. ") too far to pivot");
-        tcs_battle:set_unit_status(unit:unique_ui_id(), "idle.\nDestination outside reform range.")
-        bm:callback(
-            function()
-                tcs_battle:clear_unit_status(unit:unique_ui_id())
-            end,
-            3000
-        )
+        flash_unit_status(unit, "idle.\nDestination outside reform range.", 5000)
         return
     end
 
     if not unit:can_reach_position(destination) then
         tcs:log("Can't reform at destination; unreachable.");
-        tcs_battle:set_unit_status(unit:unique_ui_id(), "idle.\nCan't reach destination.")
-        bm:callback(
-            function()
-                tcs_battle:clear_unit_status(unit:unique_ui_id())
-            end,
-            3000
-        )
+        flash_unit_status(unit, "idle.\nCan't reach destination.", 5000)
         return
     end
 
     if tcs_battle.unit_movement_range[scrunit.unit:unique_ui_id()] < tcs:get_config("unit_reform_cost") then
         tcs:log("Insufficient movement budget to reform.");
-        tcs_battle:set_unit_status(unit:unique_ui_id(), "idle.\nNot enough movement to reform.")
-        bm:callback(
-            function()
-                tcs_battle:clear_unit_status(unit:unique_ui_id())
-            end,
-            3000
-        )
+        flash_unit_status(unit, "idle.\nNot enough movement to reform.", 5000)
         return
     end
 
@@ -726,7 +697,8 @@ function unit_reform(unit)
 
     scrunit:take_control()
 
-    tcs_battle:set_unit_status(unit:unique_ui_id(), "reforming.")
+    flash_unit_status(unit, "wheeling.")
+
     tcs:log("Unit(" .. unit:unique_ui_id() .. ") can reform.");
 
     -- Allow user to reform unit at cost of arbitrary amount of movement.
@@ -752,6 +724,102 @@ function unit_reform(unit)
         500,
         callback_name
     )
+    bm:repeat_callback(
+        function()
+            if not unit:is_moving() then
+                tcs:log("Unit(" .. unit:unique_ui_id() .. ") stopped reforming.")
+                bm:remove_callback(callback_name)
+                bm:callback(
+                    function()
+                        freeze_unit(unit)
+                    end,
+                    500
+                )
+                return
+            end
+            tcs:log("Unit(" .. unit:unique_ui_id() .. ") still reforming.")
+        end,
+        5000,
+        callback_name
+    )
+    bm:repeat_callback(
+        function()
+            tcs:log("Unit(" .. unit:unique_ui_id() .. ") reform timed out.")
+            bm:remove_callback(callback_name)
+            bm:callback(
+                function()
+                    freeze_unit(unit)
+                end,
+                500
+            )
+        end,
+        25000,
+        callback_name
+    )
+
+    bm:repeat_callback(
+        function()
+            freeze_unit_in_engagement_range(scrunit)
+        end,
+        500,
+        engage_callback_name
+    )
+end
+
+function unit_reform(unit)
+    if tcs_battle.unit_actively_moving[unit:unique_ui_id()] then
+        return
+    end
+    local scrunit = bm:get_scriptunit_for_unit(unit);
+    local callback_name = tcs_battle.unit_callback_names["stopmove"] .. unit:unique_ui_id()
+    local engage_callback_name = tcs_battle.unit_callback_names["engage_check"] .. unit:unique_ui_id()
+
+    bm:remove_callback(callback_name);
+    bm:remove_callback(engage_callback_name)
+
+    local destination = tcs_battle.last_clicked_position
+
+    local target_bearing_rad = get_bearing(unit:position(), destination)
+    local target_bearing_deg = r_to_d(target_bearing_rad)
+    local bearing_change = math.abs(unit:bearing() - math.abs(target_bearing_deg))
+
+    local reform_movement_cost = tcs:get_config("unit_reform_cost") * (bearing_change / 15)
+
+    if unit_entity_count(unit) == 1 then
+        reform_movement_cost = 0
+    elseif unit_entity_count(unit) < 5 then
+        reform_movement_cost = tcs:get_config("unit_reform_cost")
+    end
+
+    if tcs_battle.unit_movement_range[scrunit.unit:unique_ui_id()] < reform_movement_cost then
+        tcs:log("Insufficient movement budget to reform.");
+        flash_unit_status(unit, string.format("idle.\nNot enough movement to wheel; %d required.", reform_movement_cost), 5000)
+        return
+    end
+
+    scrunit:take_control()
+    reselect_unit(unit)
+    scrunit:cache_location()
+
+    unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
+    tcs_battle.unit_actively_moving[unit:unique_ui_id()] = true
+
+    flash_unit_status(unit, string.format("wheeling for %d movement.", reform_movement_cost))
+
+    tcs:log("Unit(" .. unit:unique_ui_id() .. ") can reform.");
+
+    -- Allow user to reform unit at cost of arbitrary amount of movement.
+    tcs_battle.unit_movement_range[scrunit.unit:unique_ui_id()] = tcs_battle.unit_movement_range
+        [scrunit.unit:unique_ui_id()] - reform_movement_cost
+
+    bm:callback(
+        function()
+            scrunit.uc:goto_location_angle_width(scrunit:get_cached_position(), target_bearing_deg, scrunit:get_cached_width(), true)
+        end,
+        500,
+        callback_name
+    )
+
     bm:repeat_callback(
         function()
             if not unit:is_moving() then

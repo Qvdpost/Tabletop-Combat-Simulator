@@ -1,28 +1,57 @@
 local tcs = core:get_static_object("tcs");
 local tcs_battle = core:get_static_object("tcs_battle");
 
+function get_first_selected_unit(mode)
+    if not mode then
+        mode = "unit"
+    end
+    local unit_cco = cco("CcoBattleSelection", 1):Call("FirstUnitContext")
+    if not unit_cco then
+        return
+    end
+
+    if mode == "unit" then
+        return get_unit_by_id(unit_cco:Call("UniqueUiId"))
+    elseif mode == "sunit" then
+        return get_sunit_by_id(unit_cco:Call("UniqueUiId"))
+    elseif mode == "cco" then
+        return unit_cco
+    end
+
+    tcs:log("Invalid mode requested.")
+    return nil
+end
+
 function reselect_units()
     -- TODO: Find a way to reload the porthole ability parent.
-    -- local root = core:get_ui_root()
-    -- local unit_ability_holder = find_uicomponent(root, "hud_battle", "porthole_parent")
-    -- unit_ability_holder:Layout()
-
-    -- local unit_cco = cco("CcoBattleSelection", 1):Call("FirstUnitContext")
-    -- if not unit_cco then
-    --     return
-    -- end
-
-    -- local scrunit = get_sunit_by_id(unit_cco:Call("UniqueUiId"))
-
-    -- for _, ability in pairs(tcs_battle.unit_activations) do
-    --     local ability_cco = get_ability_button_cco(ability)
-    --     tcs:log("Unit can perform " .. ability .. ": " .. tostring(scrunit.unit:can_perform_special_ability(ability)))
-    --     if ability_cco and scrunit.unit:can_perform_special_ability(ability) then
-    --         ability_cco:SetVisible(true)
-    --     end
-    -- end
+    local unit = get_first_selected_unit()
+    
     bm:clear_selection()
-    return
+
+    if not unit then
+        return
+    end
+
+    bm:callback(
+        function()
+            unit:select_in_ui()
+        end,
+        500
+    )
+end
+
+function reselect_unit(unit)
+    local selection_cco = cco("CcoBattleSelection", 1)
+
+    if selection_cco:Call("AnyUnitSelectedIncludingEnemy") and not selection_cco:Call("IsOrderable") then
+        bm:callback(
+            function()
+                bm:clear_selection()
+                unit:select_in_ui()
+            end,
+            500
+        )
+    end
 end
 
 function zoom_to(unique_ui_id)
@@ -231,8 +260,8 @@ function remove_phase_controls()
 
     local phase_control_panel = core:get_or_create_component("phase_control_panel",
         "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
-    
-        phase_control_panel:Destroy()
+
+    phase_control_panel:Destroy()
 end
 
 function remake_flag_path(flag_path)
@@ -308,6 +337,30 @@ function flash_title_message(message)
     )
 end
 
+function flash_unit_status(unit, message, duration)
+    tcs_battle:set_unit_status(unit:unique_ui_id(), message)
+    if duration then
+        bm:callback(
+            function()
+                tcs_battle:clear_unit_status(unit:unique_ui_id())
+            end,
+            duration
+        )
+    end
+end
+
+function tickdown_unit_status(unit, message, duration, callback_name)
+    tcs_battle:set_unit_status(unit:unique_ui_id(), message, duration)
+
+    bm:repeat_callback(
+        function()
+            decrease_unit_status_time(unit:unique_ui_id())
+        end,
+        1000,
+        callback_name
+    )
+end
+
 function set_title_message(message)
     bm:remove_callback("tcs_flash_message")
     local parent = core:get_ui_root()
@@ -337,11 +390,7 @@ function get_ability_button_cco(ability_key)
 end
 
 function animate_selection_proxy_on_cursor()
-    local unit_cco = cco("CcoBattleSelection", 1):Call("FirstUnitContext")
-    if not unit_cco then
-        return
-    end
-    local scrunit = get_sunit_by_id(unit_cco:Call("UniqueUiId"))
+    local scrunit = get_first_selected_unit('sunit')
 
     if not scrunit then
         return
