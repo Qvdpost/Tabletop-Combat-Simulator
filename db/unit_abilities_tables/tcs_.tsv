@@ -19,3 +19,4 @@ tcs_next_phase	false	placeholder		wh_type_augment		wh_main_anc_group_common	fals
 tcs_main_unit_active_run	false	fatigue_restore		wh_type_augment		wh_main_anc_group_common	false	false	active		false
 tcs_main_unit_active_reform	false	icon_formation		wh_type_augment		wh_main_anc_group_common	false	false	active		false
 tcs_terminate_simulation	false	placeholder		wh_type_augment		wh_main_anc_group_common	false	false	active		false
+tcs_main_unit_passive_unrampage	false	placeholder		wh_type_augment		wh_main_anc_group_common	false	true	passive		false

@@ -522,7 +522,10 @@ function unit_charge(unit)
     reselect_unit(unit)
 
     unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
-    unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", true)
+
+    if tcs:get_config("enable_damage_on_charge") then
+        unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting", true)
+    end
 
     tcs_battle.unit_actively_charging[unit:unique_ui_id()] = true
     flash_unit_status(unit, string.format("charging (%d/%.2f)", diceroll, normalised_charge_distance))

@@ -1,0 +1,8 @@
+key	layout_name
+#ui_tooltips_tables;0;db/ui_tooltips_tables/tcs_hp	
+tooltip_battle_tcs	tooltip_title_and_text
+tooltip_battle_tcs_phases	tooltip_title_and_text
+tooltip_battle_tcs_activations	tooltip_title_and_text
+tooltip_battle_tcs_controls	tooltip_title_and_text
+tooltip_battle_tcs_config	tooltip_title_and_text
+tooltip_battle_tcs_tips	tooltip_title_and_text

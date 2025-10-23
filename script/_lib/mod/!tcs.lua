@@ -5,15 +5,17 @@ local tcs = {
         max_movement_range = 120,
         max_run_distance = 60,
         max_unit_speed = 140,
-        unit_reform_cost = 15,
-        fight_time = 20,
-        shoot_time = 10,
+        unit_reform_cost = 3,
+        fight_time = 15,
+        shoot_time = 15,
         retreat_time = 10,
         ai_move_time = 30,
         ai_fight_time = 20,
-        ai_shoot_time = 10,
+        ai_shoot_time = 15,
         ai_hero_time = 5,
         overcharge_time = 10,
+        wom_per_turn = 12,
+        enable_damage_on_charge = true,
         force_formed_attack = false,
         force_straight_movement = false,
         warn_about_engagement_range = false,
@@ -24,9 +26,10 @@ local tcs = {
         pile_in_time = 5,
         break_test_dice = 2,
         unit_break_duration = 25,
-        unit_break_point = 35,
+        unit_break_point = 50,
         introduction_tour = false,
-        enable_ai_controls = false
+        enable_ai_controls = false,
+        simultaneous_turns = false,
     }
 };
 
@@ -35,6 +38,10 @@ function tcs:log(text)
     if tcs:get_config("logging_enabled") then
         -- Code taken from Mixu's Mixer Mod
 
+        local info = debug.getinfo(2, "Sl")
+
+        ftext = string.format("[TCS:%s:%s]", info.short_src, info.currentline);
+
         if enable_logging == false then
             return
         end
@@ -42,10 +49,6 @@ function tcs:log(text)
         if not __write_output_to_logfile then
             return;
         end
-        
-        local info = debug.getinfo(2, "Sl")
-
-        ftext = string.format("[TCS:%s:%s]", info.short_src, info.currentline);
 
         local logText = tostring(text)
         local logContext = tostring(ftext)
@@ -115,5 +118,6 @@ function tcs:set_config(config_key, config_value)
 
     return self.config[config_key];
 end
+
 
 core:add_static_object("tcs", tcs);

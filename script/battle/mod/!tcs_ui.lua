@@ -25,7 +25,7 @@ end
 function reselect_units()
     -- TODO: Find a way to reload the porthole ability parent.
     local unit = get_first_selected_unit()
-    
+
     bm:clear_selection()
 
     if not unit then
@@ -77,7 +77,7 @@ function get_cursor_position()
     return nil
 end
 
-function create_unit_status()
+function get_or_create_unit_status()
     local parent = core:get_ui_root()
     local info_panel = find_uicomponent(parent, "hud_battle", "info_panel_parent")
 
@@ -86,16 +86,17 @@ function create_unit_status()
     local unit_status_component = core:get_or_create_component("unit_status", "ui/templates/tcs_unit_status.twui.xml",
         info_panel)
 
+    unit_status_component:SetVisible(info_background:VisibleFromRoot())
+
     if not info_background:VisibleFromRoot() then
-        unit_status_component:Destroy()
-        return
+        return unit_status_component
     end
 
     local unit_cco = find_uicomponent(parent, "hud_battle", "info_panel_parent", "info_panel_background")
         :GetContextObject("CcoUnitDetails")
 
     if not unit_cco then
-        return
+        return unit_status_component
     end
 
     if not unit_cco:Call("BattleUnitContext.IsPlayerUnit") then
@@ -108,7 +109,7 @@ function create_unit_status()
     local scrunit = get_sunit_by_id(unit_cco:Call("BattleUnitContext.UniqueUiId"))
 
     if not scrunit then
-        return
+        return unit_status_component
     end
 
     local unit_status = tcs_battle:get_unit_status(scrunit.unit:unique_ui_id())
@@ -174,13 +175,6 @@ function set_active_phase(phase)
     local phase_button_component = find_uicomponent(phase_button_holder, phase)
     phase_button_component:SetState("selected")
     phase_button_component:SetInteractive(false)
-
-    if not (phase == "button_fight_phase") then
-        local next_phase_button_component = find_uicomponent(phase_button_holder,
-            tcs_battle.phase_buttons[tcs_battle.phase_button_to_key[phase] + 1])
-        next_phase_button_component:SetState("active")
-        next_phase_button_component:SetInteractive((bm:local_alliance() == tcs_battle.active_player_alliance_index))
-    end
 end
 
 function highlight_next_phase_button(seconds)
@@ -207,8 +201,9 @@ end
 
 function enable_next_phase_button(bool)
     local parent = core:get_ui_root()
-    local next_phase_button_component = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar", "phase_control_panel",
-        "next_phase_button")
+    local phase_control_panel = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar", "phase_control_panel")
+    local phase_button_holder = find_uicomponent(phase_control_panel, "control_buttons")
+    local next_phase_button_component = find_uicomponent(phase_control_panel, "next_phase_button")
 
     next_phase_button_component:SetDisabled(not bool)
 
@@ -216,6 +211,22 @@ function enable_next_phase_button(bool)
         next_phase_button_component:SetState("inactive")
     else
         next_phase_button_component:SetState("active")
+    end
+
+    if not tcs_battle.current_phase then
+        return
+    end
+
+    if tcs_battle.current_phase ~= "button_fight_phase" then
+        local next_square_phase_button_component = find_uicomponent(phase_button_holder,
+            tcs_battle.phase_buttons[tcs_battle.phase_button_to_key[tcs_battle.current_phase] + 1])
+        if not bool then
+            next_square_phase_button_component:SetState("inactive")
+            next_square_phase_button_component:SetInteractive(false)
+        else
+            next_square_phase_button_component:SetState("active")
+            next_square_phase_button_component:SetInteractive(true)
+        end
     end
 end
 
@@ -250,8 +261,6 @@ function setup_phase_controls()
         "ui/templates/tcs_phase_control_panel.twui.xml", bop_holder)
 
     reset_phases();
-
-    enable_next_phase_button(false)
 end
 
 function remove_phase_controls()
@@ -441,4 +450,175 @@ function animate_selection_proxy_on_cursor()
     show_movement_proxies()
 
     bm:callback(remove_movement_proxies, 5000)
+end
+
+function highlight_tcs_interface(bool)
+    local parent = core:get_ui_root()
+    local bop_holder = find_uicomponent(parent, "BOP_frame", "hud_battle_top_bar")
+    local phase_control_panel = find_uicomponent(bop_holder, "phase_control_panel")
+    local unit_info_panel = find_uicomponent(parent, "hud_battle", "info_panel_parent")
+
+    local general = bm:get_scriptunits_for_local_players_army():get_general_sunit()
+
+
+
+    if bool then
+        general.unit:select_in_ui()
+
+        unit_info_panel:SetVisible(true)
+        phase_control_panel:Highlight(true)
+        phase_control_panel:StartPulseHighlight(10)
+
+        local unit_status_component = get_or_create_unit_status()
+
+        if unit_status_component then
+            unit_status_component:Highlight(true, true)
+        end
+    else
+        phase_control_panel:Highlight(false)
+        phase_control_panel:StopPulseHighlight()
+
+        local root = core:get_ui_root()
+        local unit_info_button = find_uicomponent(root, "hud_battle", "porthole_parent", "button_toggle_infopanel")
+
+        unit_info_panel:SetVisible(unit_info_button:CurrentState() == "selected")
+
+        local unit_status_component = get_or_create_unit_status()
+        if unit_status_component then
+            unit_status_component:Highlight(false, true)
+        end
+    end
+end
+
+function add_help_pages()
+    local parser = get_link_parser();
+
+    hp_tcs_help = help_page:new(
+        "script_link_battle_tcs",
+        hpr_title("war.battle.hp.tcs_info.001"),
+        hpr_leader("war.battle.hp.tcs_info.002"),
+        hpr_normal("war.battle.hp.tcs_info.003")
+    );
+    parser:add_record("battle_tcs", "script_link_battle_tcs", "tooltip_battle_tcs");
+    tp_tcs = tooltip_patcher:new("tooltip_battle_tcs");
+    tp_tcs:set_layout_data("tooltip_title_and_text", "ui_text_replacements_localised_text_hp_battle_title_tcs",
+        "ui_text_replacements_localised_text_hp_battle_description_tcs");
+
+    hp_tcs_phases = help_page:new(
+        "script_link_battle_tcs_phases",
+        hpr_title("war.battle.hp.tcs_phases.001"),
+        hpr_leader("war.battle.hp.tcs_phases.002"),
+        hpr_normal("war.battle.hp.tcs_phases.003"),
+
+        hpr_section("hero"),
+        hpr_normal_unfaded("war.battle.hp.tcs_phases.004", "hero"),
+        hpr_normal("war.battle.hp.tcs_phases.005", "hero"),
+        hpr_normal("war.battle.hp.tcs_phases.006", "hero"),
+        hpr_normal("war.battle.hp.tcs_phases.007", "hero"),
+        hpr_normal("war.battle.hp.tcs_phases.008", "hero"),
+
+        hpr_section("move"),
+        hpr_normal_unfaded("war.battle.hp.tcs_phases.010", "move"),
+        hpr_normal("war.battle.hp.tcs_phases.010", "move"),
+        hpr_normal("war.battle.hp.tcs_phases.011", "move"),
+        hpr_normal("war.battle.hp.tcs_phases.012", "move"),
+        hpr_normal("war.battle.hp.tcs_phases.013", "move"),
+        hpr_normal("war.battle.hp.tcs_phases.014", "move"),
+        hpr_normal("war.battle.hp.tcs_phases.015", "move"),
+        hpr_normal("war.battle.hp.tcs_phases.016", "move"),
+        hpr_normal("war.battle.hp.tcs_phases.017", "move"),
+
+        hpr_section("shoot"),
+        hpr_normal_unfaded("war.battle.hp.tcs_phases.018", "shoot"),
+        hpr_normal("war.battle.hp.tcs_phases.019", "shoot"),
+        hpr_normal("war.battle.hp.tcs_phases.020", "shoot"),
+
+        hpr_section("charge"),
+        hpr_normal_unfaded("war.battle.hp.tcs_phases.021", "charge"),
+        hpr_normal("war.battle.hp.tcs_phases.022", "charge"),
+        hpr_normal("war.battle.hp.tcs_phases.023", "charge"),
+        hpr_normal("war.battle.hp.tcs_phases.024", "charge"),
+
+
+        hpr_section("fight"),
+        hpr_normal_unfaded("war.battle.hp.tcs_phases.025", "fight"),
+        hpr_normal("war.battle.hp.tcs_phases.026", "fight"),
+        hpr_normal("war.battle.hp.tcs_phases.027", "fight"),
+        hpr_normal("war.battle.hp.tcs_phases.028", "fight"),
+        hpr_normal("war.battle.hp.tcs_phases.029", "fight"),
+
+        hpr_normal("war.battle.hp.tcs_phases.030")
+    );
+    parser:add_record("battle_tcs_phases", "script_link_battle_tcs_phases", "tooltip_battle_tcs_phases");
+    tp_tcs_phases = tooltip_patcher:new("tooltip_battle_tcs_phases");
+    tp_tcs_phases:set_layout_data("tooltip_title_and_text",
+        "ui_text_replacements_localised_text_hp_battle_title_tcs_phases",
+        "ui_text_replacements_localised_text_hp_battle_description_tcs_phases");
+
+    battle_tcs_activations = help_page:new(
+        "script_link_battle_tcs_activations",
+        hpr_title("war.battle.hp.tcs_activations.001"),
+        hpr_leader("war.battle.hp.tcs_activations.002"),
+        hpr_normal("war.battle.hp.tcs_activations.003")
+    )
+    parser:add_record("battle_tcs_activations", "script_link_battle_tcs_activations", "tooltip_battle_tcs_activations");
+    tp_battle_tcs_activations = tooltip_patcher:new("tooltip_battle_tcs_activations");
+    tp_battle_tcs_activations:set_layout_data("tooltip_title_and_text",
+        "ui_text_replacements_localised_text_hp_battle_title_tcs_activations",
+        "ui_text_replacements_localised_text_hp_battle_description_tcs_activations");
+
+    batle_tcs_controls = help_page:new(
+        "script_link_battle_tcs_controls",
+        hpr_title("war.battle.hp.tcs_controls.001"),
+        hpr_leader("war.battle.hp.tcs_controls.002"),
+        hpr_normal("war.battle.hp.tcs_controls.003")
+    )
+    parser:add_record("battle_tcs_controls", "script_link_battle_tcs_controls", "tooltip_battle_tcs_controls");
+    tp_battle_tcs_controls = tooltip_patcher:new("tooltip_battle_tcs_controls");
+    tp_battle_tcs_controls:set_layout_data("tooltip_title_and_text",
+        "ui_text_replacements_localised_text_hp_battle_title_tcs_controls",
+        "ui_text_replacements_localised_text_hp_battle_description_tcs_controls");
+    tl_battle_tcs_controls = tooltip_listener:new(
+        "tooltip_battle_tcs_controls",
+        function()
+            highlight_tcs_interface(true);
+        end,
+        function()
+            highlight_tcs_interface(false);
+        end
+    );
+
+
+    batle_tcs_config = help_page:new(
+        "script_link_battle_tcs_config",
+        hpr_title("war.battle.hp.tcs_config.001"),
+        hpr_leader("war.battle.hp.tcs_config.002"),
+        hpr_normal("war.battle.hp.tcs_config.003")
+    )
+    parser:add_record("battle_tcs_config", "script_link_battle_tcs_config", "tooltip_battle_tcs_config");
+    tp_battle_tcs_config = tooltip_patcher:new("tooltip_battle_tcs_config");
+    tp_battle_tcs_config:set_layout_data("tooltip_title_and_text",
+        "ui_text_replacements_localised_text_hp_battle_title_tcs_config",
+        "ui_text_replacements_localised_text_hp_battle_description_tcs_config");
+
+    batle_tcs_tips = help_page:new(
+        "script_link_battle_tcs_tips",
+        hpr_title("war.battle.hp.tcs_tips.001"),
+        hpr_leader("war.battle.hp.tcs_tips.002"),
+        hpr_normal("war.battle.hp.tcs_tips.003")
+    )
+    parser:add_record("battle_tcs_tips", "script_link_battle_tcs_tips", "tooltip_battle_tcs_tips");
+    tp_battle_tcs_tips = tooltip_patcher:new("tooltip_battle_tcs_tips");
+    tp_battle_tcs_tips:set_layout_data("tooltip_title_and_text",
+        "ui_text_replacements_localised_text_hp_battle_title_tcs_tips",
+        "ui_text_replacements_localised_text_hp_battle_description_tcs_tips");
+
+
+    table.inject(hp_contents.content, 2,
+        hpr_section("tcs"),
+        hpr_title("war.battle.hp.tcs.001", "tcs"),
+        hpr_image("war.battle.hp.tcs.002", "UI/help_images/advisor.png", "tcs"),
+        hpr_normal("war.battle.hp.tcs.003", "tcs"),
+        hpr_section_index("tcs", "battle_tcs_phases")
+    )
 end

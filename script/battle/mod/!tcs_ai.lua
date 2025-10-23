@@ -37,10 +37,6 @@ function ai_unit_move(unit, time)
         return
     end
 
-    if has_unit_in_missile_range(scrunit) then
-        tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") has enemy in rang. Should it move?");
-    end
-
     tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") can move.");
     tcs_battle.ai_actively_moving[unit:unique_ui_id()] = true
 
@@ -52,6 +48,10 @@ function ai_unit_move(unit, time)
     bm:callback(
         function()
             scrunit:cache_destination()
+
+            if has_unit_in_missile_range(scrunit) then
+                tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") has enemy in range. Should it move?");
+            end
 
             if not scrunit:get_cached_destination_position() and not unit:current_target() then
                 tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") has no destination or target.");
@@ -157,6 +157,9 @@ end
 
 function ai_stopshoot_unit(unit)
     local scrunit = bm:get_scriptunit_for_unit(unit);
+
+    bm:remove_callback(tcs_battle.unit_callback_names["stopshoot"] .. unit:unique_ui_id())
+
     unit:disable_special_ability("tcs_main_unit_passive_inactive_shooting", false)
     unit:disable_special_ability("tcs_ai_unit_passive_ranged_fix", true)
 
@@ -236,7 +239,6 @@ function ai_unit_shoot(unit, time)
         function()
             if not unit:current_target() then
                 tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") is not targetting anything.");
-                bm:remove_callback(callback_name);
                 ai_stopshoot_unit(unit)
             end
         end,
@@ -357,6 +359,10 @@ function ai_unit_charge(unit)
 
     unit:disable_special_ability("tcs_main_unit_passive_stationary", true)
 
+    if tcs:get_config("enable_damage_on_charge") then
+        unit:disable_special_ability("tcs_main_unit_passive_inactive_fighting")
+    end
+
     if unit:is_currently_flying() and not ai_target.unit:is_currently_flying() and not unit:has_attribute("always_flying") then
         tcs_battle.unit_should_land[unit:unique_ui_id()] = true
     end
@@ -368,7 +374,7 @@ function ai_unit_charge(unit)
     scrunit:take_control()
     scrunit:play_sound_charge()
     scrunit.uc:attack_unit(ai_target.unit, true, true)
-
+    
 
     tcs:log("AI Unit(" .. unit:unique_ui_id() .. ") attacking target unit(" .. ai_target.unit:unique_ui_id() .. ")");
 

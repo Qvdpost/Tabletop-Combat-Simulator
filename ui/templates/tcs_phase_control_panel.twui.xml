@@ -4685,8 +4685,8 @@
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Small_Button"
 			uniqueguid="B9E71DB7-C140-8C04-F58F61CB9C4561CB"
-			currentstate="AFEA7CD0-D4A9-B59A-B63BEDBA81CBD298"
-			defaultstate="AFEA7CD0-D4A9-B59A-B63BEDBA81CBD298">
+			currentstate="3587BD6C-B1F4-DD6D-2767B4CCBDD4BA98"
+			defaultstate="3587BD6C-B1F4-DD6D-2767B4CCBDD4BA98">
 			<callbackwithcontextlist>
 				<callback_with_context callback_id="Button"/>
 				<callback_with_context callback_id="CallbackAnimTrigger"/>

@@ -1,0 +1,8 @@
+key	text	tooltip
+#Loc;1;text/db/tcs_hp_help_page_index_records__.loc		
+help_page_index_records_text_battle_tcs	[[sl:battle_tcs]]Tabletop Combat Simulator[[/sl]]	false
+help_page_index_records_text_battle_tcs_phases	[[sl:battle_tcs_phases]]Phases[[/sl]]	false
+help_page_index_records_text_battle_tcs_activations	[[sl:battle_tcs_activations]]Activations[[/sl]]	false
+help_page_index_records_text_battle_tcs_controls	[[sl:battle_tcs_controls]]Interface[[/sl]]	false
+help_page_index_records_text_battle_tcs_config	[[sl:battle_tcs_config]]Configuration[[/sl]]	false
+help_page_index_records_text_battle_tcs_tips	[[sl:battle_tcs_tips]]Tips & Tricks[[/sl]]	false

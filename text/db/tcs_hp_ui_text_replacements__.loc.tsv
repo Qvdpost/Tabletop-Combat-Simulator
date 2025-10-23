@@ -1,0 +1,27 @@
+key	text	tooltip
+#Loc;1;text/db/tcs_hp_ui_text_replacements__.loc		
+ui_text_replacements_localised_text_tcs_introduction_tour_name	Tabletop Combat Simulator	false
+ui_text_replacements_localised_text_hp_battle_tcs_phases_add_01	Most [[sl:battle_infantry]]infantry[[/sl]] units can scale walls using ladders.	false
+ui_text_replacements_localised_text_hp_battle_point_10_tcs_phases	The defender should seek to stop the attacker from gaining control of any [[sl:battle_victory_locations]]victory locations[[/sl]] - particularly the Major Victory Location, which grants its holder a large number of [[img:icon_victory_tickets]][[/img]][[sl_tooltip:battle_victory_tickets]]Victory Tickets[[/sl_tooltip]] over time.	false
+ui_text_replacements_localised_text_hp_battle_point_11_tcs_phases	Damage caused to the city in battle will be reflected on the campaign map afterwards.	false
+ui_text_replacements_localised_text_hp_battle_point_1_tcs_phases	The fortifications that surround the city must be overcome by the attacker if they are to gain victory.	false
+ui_text_replacements_localised_text_hp_battle_point_2_tcs_phases	The attacker may use [[sl:battle_siege_weapons]]siege weapons[[/sl]], [[sl:battle_artillery]]artillery[[/sl]], or [[sl:battle_monsters]]monsters[[/sl]] to attack the fortified [[sl:battle_walls]]walls[[/sl]], [[sl:battle_gates]]gates[[/sl]] and [[sl:battle_towers]]towers[[/sl]].	false
+ui_text_replacements_localised_text_hp_battle_point_3_tcs_phases	{{tr:hp_battle_major_siege_battles_add_01}} Select an infantry unit and right-click a wall piece to issue this order when attacking a city.	false
+ui_text_replacements_localised_text_hp_battle_point_4_tcs_phases	The attacker may take [[sl:battle_capture_locations]]capture locations[[/sl]] to gain control of gates and towers, and to deny the use of [[sl:battle_constructed_defences]]constructed defences[[/sl]] to the defender.	false
+ui_text_replacements_localised_text_hp_battle_point_5_tcs_phases	The attacker may capture [[sl:battle_victory_locations]]victory locations[[/sl]] to gain [[img:icon_victory_tickets]][[/img]][[sl_tooltip:battle_victory_tickets]]Victory Tickets[[/sl_tooltip]]. The attacker will win the battle if enough [[img:icon_victory_tickets]][[/img]]Victory Tickets are gained.	false
+ui_text_replacements_localised_text_hp_battle_point_6_tcs_phases	The defender may station units on the walls to defend them, and may direct the fire of [[sl:battle_towers]]wall towers[[/sl]] against the enemy.	false
+ui_text_replacements_localised_text_hp_battle_point_7_tcs_phases	The defender can win by either defeating all attacking [[sl:battle_units]]units[[/sl]] or holding them off until the [[sl_tooltip:battle_time_limit]]time limit[[/sl_tooltip]] expires.	false
+ui_text_replacements_localised_text_hp_battle_point_8_tcs_phases	Supply-point [[sl:battle_capture_locations]]capture locations[[/sl]] grant [[img:icon_supplies]][[/img]][[sl:battle_supplies]]Supplies[[/sl]] to the defender if held by them. [[img:icon_supplies]][[/img]]Supplies can be spent on [[sl:battle_constructed_defences]]constructing defences[[/sl]] in build locations within the settlement.	false
+ui_text_replacements_localised_text_hp_battle_point_9_tcs_phases	These build locations are each linked back to a Supply-point capture location, which must be held for defences to be constructed.	false
+ui_text_replacements_localised_text_hp_battle_title_tcs	Tabletop Combat Simulator	false
+ui_text_replacements_localised_text_hp_battle_description_tcs	Learn more about TCS	false
+ui_text_replacements_localised_text_hp_battle_title_tcs_phases	Phases	false
+ui_text_replacements_localised_text_hp_battle_description_tcs_phases	Learn more about the various Phases.	false
+ui_text_replacements_localised_text_hp_battle_title_tcs_activations	Activations	false
+ui_text_replacements_localised_text_hp_battle_description_tcs_activations	Learn about Unit Activations	false
+ui_text_replacements_localised_text_hp_battle_title_tcs_controls	Controls	false
+ui_text_replacements_localised_text_hp_battle_description_tcs_controls	Learn about the TCS Interface	false
+ui_text_replacements_localised_text_hp_battle_title_tcs_config	Configurations	false
+ui_text_replacements_localised_text_hp_battle_description_tcs_config	Learn how to configure TCS	false
+ui_text_replacements_localised_text_hp_battle_title_tcs_tips	Tips	false
+ui_text_replacements_localised_text_hp_battle_description_tcs_tips	Knowledge is power!!!	false

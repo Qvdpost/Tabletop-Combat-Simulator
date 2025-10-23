@@ -1,4 +1,6 @@
 local tcs_battle = {
+    round_number = 0,
+    priority_passed = false,
     selected_units = {},
     active_player_alliance_index = nil,
     current_phase = nil,
@@ -6,6 +8,8 @@ local tcs_battle = {
     engagement_distance = 20,
     charge_range = 120,
     charge_dice_count = 4,
+
+    ai_wom_reserve = 0,
 
     proxy_id = nil,
 

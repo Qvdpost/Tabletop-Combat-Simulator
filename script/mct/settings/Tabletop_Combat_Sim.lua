@@ -98,6 +98,14 @@ mct_charge_option:set_default_value(120)
 mct_charge_option:set_tooltip_text("The maximum distance a unit can Charge another unit. Uses beyond this range will be nullified and a new target can be chosen.");
 mct_charge_option:set_is_global(true)
 
+local mct_wom_option = mct_mod:add_new_option("wom_per_turn", "slider")
+mct_wom_option:set_text("Winds of Magic per turn.")
+mct_wom_option:slider_set_min_max(0, 100)
+mct_wom_option:slider_set_step_size(1)
+mct_wom_option:set_default_value(12)
+mct_wom_option:set_tooltip_text("The number of Winds of Magic an army is giving per Wizard during the Hero Phase.");
+mct_wom_option:set_is_global(true)
+
 local mct_pile_in_option = mct_mod:add_new_option("pile_in_time", "slider")
 mct_pile_in_option:set_text("Pile In move duration")
 mct_pile_in_option:slider_set_min_max(0, 60)
@@ -113,6 +121,22 @@ mct_break_point_option:slider_set_step_size(1)
 mct_break_point_option:set_default_value(50)
 mct_break_point_option:set_tooltip_text("The percentage of unit morale that triggers a break-check during the Hero Phase.");
 mct_break_point_option:set_is_global(true)
+
+
+local option_tcs = mct_mod:add_new_option("enable_damage_on_charge", "checkbox");
+option_tcs:set_text("Enable Damage on Charge")
+option_tcs:set_tooltip_text("If enabled, units may deal damage for the duration of their 'Overcharge'.");
+option_tcs:set_default_value(true);
+option_tcs:set_is_global(true)
+
+
+local option_tcs = mct_mod:add_new_option("overcharge_time", "slider");
+option_tcs:set_text("Overcharge max duration")
+option_tcs:slider_set_min_max(0, 60)
+option_tcs:slider_set_step_size(1)
+option_tcs:set_default_value(10)
+option_tcs:set_tooltip_text("The number of seconds a unit is given to move and optionally deal damage after reaching their charge target. This duration is calculated from the excess of their charge roll multiplied by this value.");
+option_tcs:set_is_global(true)
 
 local option_tcs_formed_attack_enabled = mct_mod:add_new_option("force_formed_attack", "checkbox");
 option_tcs_formed_attack_enabled:set_text("Force Formed Attack")

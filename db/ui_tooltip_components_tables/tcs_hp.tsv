@@ -1,0 +1,3 @@
+child_id	ui_tooltip	icon_path	state_name	is_visible
+#ui_tooltip_components_tables;2;db/ui_tooltip_components_tables/tcs_hp				
+text	tooltip_battle_tcs			true

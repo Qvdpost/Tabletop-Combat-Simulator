@@ -20,13 +20,39 @@ function active_player_alliance()
     return bm:alliances():item(tcs_battle.active_player_alliance_index)
 end
 
+function is_refundable_ability(ability_cco)
+    if not ability_cco then
+        return false
+    end
+
+    if ability_cco:Call("SetupAbilityContext.SpawnedUnitLandRecordContext") ~= nil then
+        return false
+    end
+
+    if ability_cco:Call("SetupAbilityContext.SourceTypeName") == "Spell" and ability_cco:Call("ManaUsed") > 0 then
+        return true
+    end
+
+    if ability_cco:Call("SetupAbilityContext.SourceTypeName") == "Rune" then
+        return true
+    end
+end
+
 function disable_non_passives(unit, bool)
     if bool == nil then
         bool = true
     end
+
     for key, ability in pairs(unit:owned_non_passive_special_abilities()) do
         if not table.contains(tcs_battle.unit_activations, ability) then
             unit:disable_special_ability(ability, bool)
+        end
+        if bool == false then
+            local ability_cco = get_unit_battle_ability_cco(unit, ability)
+            if is_refundable_ability(ability_cco) then
+                local scrunit = bm:get_scriptunit_for_unit(unit);
+                scrunit.uc:reset_ability_number_of_uses(ability)
+            end
         end
     end
 end
@@ -50,13 +76,11 @@ function enable_tcs_passives(unit, time)
 end
 
 function enable_non_passives(unit, time)
-    for key, ability in pairs(unit:owned_non_passive_special_abilities()) do
-        unit:disable_special_ability(ability, false)
-    end
+    disable_non_passives(unit, false)
 
     bm:callback(
         function()
-            disable_non_passives(unit)
+            disable_non_passives(unit, true)
         end,
         time
     )
@@ -345,7 +369,6 @@ function land_unit(unit)
     end
 
     if not unit:is_currently_flying() then
-        tcs:log(string.format("Unit (%d) is currently not flying.", unit:unique_ui_id()));
         return
     end
 
@@ -362,6 +385,7 @@ function land_unit(unit)
     unit_cco:Call("ToggleFlying")
     bm:remove_callback(tcs_battle.unit_callback_names["landunit"] .. unit:unique_ui_id())
     tcs_battle.unit_should_land[unit:unique_ui_id()] = nil
+    tcs:log(string.format("Unit (%d) landed.", unit:unique_ui_id()));
 end
 
 function disable_unit_activations(unit)
@@ -392,6 +416,14 @@ function disable_formed_attack(unit)
     -- TODO: Exclude Cathay attribute groups
     unit:set_stat_attribute("formed_attack", false)
     scrunit:change_behaviour_active("formed_attack", false)
+end
+
+function enable_rampage(unit)
+    unit:disable_special_ability("tcs_main_unit_passive_unrampage", true)
+end
+
+function disable_rampage(unit)
+    unit:disable_special_ability("tcs_main_unit_passive_unrampage", false)
 end
 
 function roll_dice(n, eyes)
@@ -438,7 +470,7 @@ function get_enemy_scrunits(scrunit, match_y_axis)
 
     for army = 1, bm:alliances():item(get_next_alliance_index(scrunit.unit:alliance_index())):armies():count() do
         local battle_army = bm:alliances():item(get_next_alliance_index(scrunit.unit:alliance_index())):armies():item(
-        army)
+            army)
         for unit_id = 1, battle_army:units():count() do
             local unit = battle_army:units():item(unit_id);
             if unit:number_of_men_alive() > 0 then
@@ -607,6 +639,84 @@ function perform_next_phase()
         battle_vector:new())
 end
 
+function set_reserve_ai_wom()
+    tcs_battle.ai_wom_reserve = 0
+    mapf_to_ai_armies(add_reserve_ai_current_wom)
+end
+
+function add_reserve_ai_current_wom(army)
+    tcs_battle.ai_wom_reserve = tcs_battle.ai_wom_reserve + army:winds_of_magic_current()
+end
+
+function is_wizard_unit(unit)
+    local unit_cco = tcs_get_battleunit_cco(unit:unique_ui_id())
+    local category_name = unit_cco:Call("UnitRecordContext.CategoryName")
+    return (category_name == "Wizard" or category_name == "Wizard Lord" or category_name == "Hybrid Weapon Wizard")
+end
+
+function army_wizard_count(army)
+    local count = 0
+    for unit_id = 1, army:units():count() do
+        local unit = army:units():item(unit_id);
+        if is_wizard_unit(unit) then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function add_wom(army, value)
+    army:modify_winds_of_magic_current(value * army_wizard_count(army), true)
+end
+
+function null_wom(army)
+    army:modify_winds_of_magic_reserve(-army:winds_of_magic_reserve())
+    army:modify_winds_of_magic_current(-army:winds_of_magic_current(), true)
+end
+
+function mapf_to_active_player_armies(func, arg)
+    for army = 1, active_player_alliance():armies():count() do
+        local battle_army = active_player_alliance():armies():item(army);
+        func(battle_army, arg)
+    end
+end
+
+function mapf_to_local_player_armies(func, arg)
+    for army = 1, bm:alliances():item(bm:local_alliance()):armies():count() do
+        local battle_army = bm:alliances():item(bm:local_alliance()):armies():item(army)
+        func(battle_army, arg)
+    end
+end
+
+function mapf_to_all_armies(func, arg)
+    if bm:is_multiplayer() then
+        mapf_to_local_player_armies(func, arg)
+        return
+    end
+
+    for alliance = 1, bm:alliances():count() do
+        local army_alliance = bm:alliances():item(alliance);
+        for army = 1, army_alliance:armies():count() do
+            local units_army = army_alliance:armies():item(army);
+            func(units_army, arg)
+        end
+    end
+end
+
+function mapf_to_ai_armies(func, arg)
+    for alliance = 1, bm:alliances():count() do
+        if not (alliance == bm:local_alliance()) then
+            local ai_alliance = bm:alliances():item(alliance);
+            for army = 1, ai_alliance:armies():count() do
+                local ai_army = ai_alliance:armies():item(army);
+                if not (ai_army:is_player_controlled()) then
+                    func(ai_army, arg)
+                end
+            end
+        end
+    end
+end
+
 function mapf_to_first_unit_context(func, ability)
     local scrunit = get_first_selected_unit('sunit')
 
@@ -638,57 +748,53 @@ function mapf_to_selected_units(func, time, ability)
     end
 end
 
-function mapf_to_local_player_scrunits(func)
-    local time = time or nil;
-    for army = 1, bm:alliances():item(bm:local_alliance()):armies():count() do
-        local battle_army = bm:alliances():item(bm:local_alliance()):armies():item(army)
-        for unit_id = 1, battle_army:units():count() do
-            local scrunit = get_sunit_by_id(battle_army:units():item(unit_id):unique_ui_id())
+function mapf_to_local_player_scrunits(func, arg)
+    for army_id = 1, bm:alliances():item(bm:local_alliance()):armies():count() do
+        local army = bm:alliances():item(bm:local_alliance()):armies():item(army_id)
+        for unit_id = 1, army:units():count() do
+            local scrunit = get_sunit_by_id(army:units():item(unit_id):unique_ui_id())
             if scrunit.unit:number_of_men_alive() > 0 then
-                func(scrunit, time)
+                func(scrunit, arg)
             end
         end
     end
 end
 
-function mapf_to_local_player_units(func, time)
-    local time = time or nil;
-    for army = 1, bm:alliances():item(bm:local_alliance()):armies():count() do
-        local battle_army = bm:alliances():item(bm:local_alliance()):armies():item(army)
-        for unit_id = 1, battle_army:units():count() do
-            local unit = battle_army:units():item(unit_id);
+function mapf_to_local_player_units(func, arg)
+    for army_id = 1, bm:alliances():item(bm:local_alliance()):armies():count() do
+        local army = bm:alliances():item(bm:local_alliance()):armies():item(army_id)
+        for unit_id = 1, army:units():count() do
+            local unit = army:units():item(unit_id);
             if unit:number_of_men_alive() > 0 then
-                func(unit, time)
+                func(unit, arg)
             end
         end
     end
 end
 
-function mapf_to_active_player_units(func, time)
-    local time = time or nil;
-    for army = 1, active_player_alliance():armies():count() do
-        local battle_army = active_player_alliance():armies():item(army);
-        for unit_id = 1, battle_army:units():count() do
-            local unit = battle_army:units():item(unit_id);
+function mapf_to_active_player_units(func, arg)
+    for army_id = 1, active_player_alliance():armies():count() do
+        local army = active_player_alliance():armies():item(army_id);
+        for unit_id = 1, army:units():count() do
+            local unit = army:units():item(unit_id);
             if unit:number_of_men_alive() > 0 then
-                func(unit, time)
+                func(unit, arg)
             end
         end
     end
 end
 
-function mapf_to_ai_units(func, time)
-    local time = time or nil;
-    for alliance = 1, bm:alliances():count() do
-        if not (alliance == bm:local_alliance()) then
-            local ai_alliance = bm:alliances():item(alliance);
-            for army = 1, ai_alliance:armies():count() do
-                local ai_army = ai_alliance:armies():item(army);
-                if not (ai_army:is_player_controlled()) then
-                    for unit_id = 1, ai_army:units():count() do
-                        local ai_unit = ai_army:units():item(unit_id);
-                        if ai_unit:number_of_men_alive() > 0 then
-                            func(ai_unit, time)
+function mapf_to_ai_units(func, arg)
+    for alliance_id = 1, bm:alliances():count() do
+        if not (alliance_id == bm:local_alliance()) then
+            local alliance = bm:alliances():item(alliance_id);
+            for army_id = 1, alliance:armies():count() do
+                local army = alliance:armies():item(army_id);
+                if not (army:is_player_controlled()) then
+                    for unit_id = 1, army:units():count() do
+                        local unit = army:units():item(unit_id);
+                        if unit:number_of_men_alive() > 0 then
+                            func(unit, arg)
                         end
                     end
                 end
@@ -697,30 +803,29 @@ function mapf_to_ai_units(func, time)
     end
 end
 
-function mapf_to_all_units(func, time)
+function mapf_to_all_units(func, arg)
     if bm:is_multiplayer() then
-        mapf_to_local_player_units(func, time)
+        mapf_to_local_player_units(func, arg)
         return
     end
 
-    local time = time or nil;
     for alliance = 1, bm:alliances():count() do
         local army_alliance = bm:alliances():item(alliance);
         for army = 1, army_alliance:armies():count() do
             local units_army = army_alliance:armies():item(army);
             for unit_id = 1, units_army:units():count() do
-                local ai_unit = units_army:units():item(unit_id);
-                if ai_unit:number_of_men_alive() > 0 then
-                    func(ai_unit, time)
+                local unit = units_army:units():item(unit_id);
+                if unit:number_of_men_alive() > 0 then
+                    func(unit, arg)
                 end
             end
         end
     end
 end
 
-function mapf_to_all_scrunits(func)
+function mapf_to_all_scrunits(func, arg)
     if bm:is_multiplayer() then
-        mapf_to_local_player_scrunits(func)
+        mapf_to_local_player_scrunits(func, arg)
         return
     end
     for alliance = 1, bm:alliances():count() do
@@ -729,11 +834,83 @@ function mapf_to_all_scrunits(func)
             local units_army = army_alliance:armies():item(army);
             for unit_id = 1, units_army:units():count() do
                 local unit = units_army:units():item(unit_id);
-
-                func(bm:get_scriptunit_for_unit(unit))
+                local scrunit = bm:get_scriptunit_for_unit(unit)
+                if scrunit.unit:number_of_men_alive() > 0 then
+                    func(scrunit, arg)
+                end
             end
         end
     end
+end
+
+function mapf_to_local_player_rampaging_units(func, arg)
+    for army = 1, bm:alliances():item(bm:local_alliance()):armies():count() do
+        local battle_army = bm:alliances():item(bm:local_alliance()):armies():item(army)
+        for unit_id = 1, battle_army:units():count() do
+            local unit = battle_army:units():item(unit_id);
+            if unit:number_of_men_alive() > 0 and unit:is_rampaging() then
+                disable_rampage(unit)
+                bm:callback(
+                    function()
+                        enable_rampage(unit)
+                        func(unit, arg)
+                    end,
+                    500
+                )
+            end
+        end
+    end
+end
+
+function mapf_to_all_rampaging_units(func, arg)
+    if bm:is_multiplayer() then
+        mapf_to_local_player_units(func, arg)
+        return
+    end
+
+    for alliance_id = 1, bm:alliances():count() do
+        local alliance = bm:alliances():item(alliance_id);
+        for army = 1, alliance:armies():count() do
+            local units_army = alliance:armies():item(army);
+            for unit_id = 1, units_army:units():count() do
+                local unit = units_army:units():item(unit_id);
+                if unit:number_of_men_alive() > 0 and unit:is_rampaging() then
+                    disable_rampage(unit)
+                    bm:callback(
+                        function()
+                            enable_rampage(unit)
+                            func(unit, arg)
+                        end,
+                        500
+                    )
+                end
+            end
+        end
+    end
+end
+
+function mapf_to_active_player_rampaging_units(func, arg)
+    for army = 1, active_player_alliance():armies():count() do
+        local battle_army = active_player_alliance():armies():item(army);
+        for unit_id = 1, battle_army:units():count() do
+            local unit = battle_army:units():item(unit_id);
+            if unit:number_of_men_alive() > 0 and unit:is_rampaging() then
+                disable_rampage(unit)
+                bm:callback(
+                    function()
+                        enable_rampage(unit)
+                        func(unit, arg)
+                    end,
+                    500
+                )
+            end
+        end
+    end
+end
+
+function enable_fire_at_will(unit)
+    local scrunit = bm:get_scriptunit_for_unit(unit)
+    scrunit.uc:fire_at_will(true)
 end
 
 function disable_fire_at_will(unit)
@@ -818,6 +995,17 @@ local function switch(x, cases)
     local match = cases[x] or cases.default or function() end
 
     return match()
+end
+
+function table.inject(t, position, ...)
+    for i = #t, position, -1 do
+        tcs:log("Shifting index " .. i .. " to " .. (i + #arg))
+        t[i + #arg] = t[i]
+    end
+    for i = 1, #arg do
+        tcs:log("Inserting value at index " .. (position + i - 1))
+        t[position + i - 1] = arg[i]
+    end
 end
 
 function unit_entity_count(unit)
@@ -945,39 +1133,32 @@ function get_unit_to_position_distance(unit, position)
     return math.floor(unit_entity_min_distance(unit, position))
 end
 
-function setup_tcs_units(unit)
-    if not unit then
-        mapf_to_ai_units(disable_non_passives);
-        mapf_to_all_units(disable_fire_at_will);
-        mapf_to_all_units(disable_melee_attacks)
-        mapf_to_all_units(disable_morale)
-        mapf_to_all_units(set_unit_movement)
+function setup_tcs_unit(unit)
+    disable_tcs_actives(unit)
+    disable_fire_at_will(unit);
+    disable_melee_attacks(unit);
+    disable_morale(unit);
+    set_unit_movement(unit);
 
-        if tcs:get_config("force_formed_attack") then
-            mapf_to_all_units(enable_formed_attack)
-        else
-            mapf_to_all_units(disable_formed_attack)
-        end
+    unit:disable_special_ability("tcs_main_unit_passive_unrampage", true)
+
+    if tcs:get_config("force_formed_attack") then
+        enable_formed_attack(unit)
     else
-        disable_tcs_actives(unit)
-        disable_non_passives(unit);
-        disable_fire_at_will(unit);
-        disable_melee_attacks(unit);
-        disable_morale(unit);
-        set_unit_movement(unit);
-
-        if tcs:get_config("force_formed_attack") then
-            enable_formed_attack(unit)
-        else
-            disable_formed_attack(unit)
-        end
+        disable_formed_attack(unit)
     end
+end
+
+function setup_tcs_units()
+    mapf_to_all_units(setup_tcs_unit)
 end
 
 -- Test scripts placed here will be called when the battle script environment is started - this happens
 -- right at the end of the loading sequence in to any battle
 function battle_startup_test_scripts_here()
     tcs:log("*** tcs script loaded - Tabletop Combat Simulator engaged. ***\n\n");
+
+    add_help_pages()
 
     function tcs_active_unit_handler(unit, is_selected)
         if is_selected then
@@ -1039,7 +1220,7 @@ function battle_startup_test_scripts_here()
                 mapf_to_ai_units(ai_unit_shoot, tcs:get_config("ai_shoot_time") * 1000);
             end,
             tcs_army_ai_charge = function() mapf_to_ai_units(ai_unit_charge) end,
-            tcs_army_ai_hero = function() mapf_to_ai_units(enable_non_passives, tcs:get_config("ai_hero_time") * 1000) end,
+            tcs_army_ai_hero = function() mapf_to_ai_units(enable_non_passives, tcs:get_config("ai_hero_time") * 1000) end, -- TODO: implement hero actions??
             tcs_next_phase = function() core:trigger_custom_event("tcs_next_phase", {}) end,
             tcs_terminate_simulation = function() terminate_tcs() end,
         }
@@ -1058,6 +1239,14 @@ function battle_deployment_test_scripts_here()
     tcs:clear_log();
     tcs:log("Battle Deployment started.");
 
+    bm:repeat_real_callback(
+        function()
+            get_or_create_unit_status()
+        end,
+        200,
+        tcs_battle.real_callback_names["unit_status"]
+    )
+
     if bm:is_multiplayer() or not tcs:get_config("enable_ai_controls") then
         show_ai_controls(false)
     end
@@ -1065,6 +1254,8 @@ function battle_deployment_test_scripts_here()
     fix_ai_shooting();
 
     setup_tcs_units()
+
+    mapf_to_all_armies(null_wom)
 
     tcs_battle.active_player_alliance_index = bm:random_number(1, 2);
 
@@ -1086,14 +1277,6 @@ function battle_conflict_test_scripts_here()
     tcs:log("Battle Deployment done; combat starting.");
 
     core:trigger_custom_event('button_hero_phase', {})
-
-    bm:repeat_real_callback(
-        function()
-            create_unit_status()
-        end,
-        200,
-        tcs_battle.real_callback_names["unit_status"]
-    )
 
     mapf_to_all_units(tag_active)
 

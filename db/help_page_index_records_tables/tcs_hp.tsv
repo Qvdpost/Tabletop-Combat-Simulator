@@ -1,0 +1,8 @@
+key	display_order	inset_level	is_battle	enabled
+#help_page_index_records_tables;2;db/help_page_index_records_tables/tcs_hp				
+batle_tcs	350	0	true	true
+battle_tcs_phases	351	1	true	true
+battle_tcs_activations	352	1	true	true
+battle_tcs_controls	353	1	true	true
+battle_tcs_config	354	1	true	true
+battle_tcs_tips	355	1	true	true
